@@ -1,13 +1,35 @@
 @extends('layouts.admin')
 @section('title','Click Logs')
 @section('content')
-<form method="GET" class="flex flex-wrap gap-2 mb-4">
-  <input name="short_link" value="{{ request('short_link') }}" placeholder="Slug..." class="rounded-xl border-line text-sm">
-  <select name="type" class="rounded-xl border-line text-sm"><option value="">Semua</option><option value="human" @selected(request('type')==='human')>Human</option><option value="bot" @selected(request('type')==='bot')>Bot</option></select>
-  <input name="country" value="{{ request('country') }}" placeholder="Country code..." class="rounded-xl border-line text-sm uppercase" maxlength="2">
-  <input name="source" value="{{ request('source') }}" placeholder="Source platform..." class="rounded-xl border-line text-sm">
-  <button class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold">Filter</button>
-</form>
+@if (session('success'))
+  <div class="mb-3 p-3 rounded-xl bg-emerald-50 text-emerald-700 text-sm">{{ session('success') }}</div>
+@endif
+@if (session('error'))
+  <div class="mb-3 p-3 rounded-xl bg-red-50 text-red-700 text-sm">{{ session('error') }}</div>
+@endif
+<div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+  <form method="GET" class="flex flex-wrap gap-2">
+    <input name="short_link" value="{{ request('short_link') }}" placeholder="Slug..." class="rounded-xl border-line text-sm">
+    <select name="type" class="rounded-xl border-line text-sm"><option value="">Semua</option><option value="human" @selected(request('type')==='human')>Human</option><option value="bot" @selected(request('type')==='bot')>Bot</option></select>
+    <input name="country" value="{{ request('country') }}" placeholder="Country code..." class="rounded-xl border-line text-sm uppercase" maxlength="2">
+    <input name="source" value="{{ request('source') }}" placeholder="Source platform..." class="rounded-xl border-line text-sm">
+    <button class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold">Filter</button>
+  </form>
+  <div class="flex flex-wrap gap-2">
+    <form method="POST" action="{{ route('admin.click-logs.clear') }}" onsubmit="return confirm('Hapus log lebih dari 30 hari?')">@csrf
+      <input type="hidden" name="scope" value="older_30d">
+      <button class="px-3 py-2 rounded-xl bg-amber-50 text-amber-700 text-sm font-semibold border border-amber-200 hover:bg-amber-100">Clear &gt;30 hari</button>
+    </form>
+    <form method="POST" action="{{ route('admin.click-logs.clear') }}" onsubmit="return confirm('Hapus SEMUA log bot? Tindakan ini tidak bisa dibatalkan.')">@csrf
+      <input type="hidden" name="scope" value="bots">
+      <button class="px-3 py-2 rounded-xl bg-orange-50 text-orange-700 text-sm font-semibold border border-orange-200 hover:bg-orange-100">Clear semua Bot</button>
+    </form>
+    <form method="POST" action="{{ route('admin.click-logs.clear') }}" onsubmit="return confirm('HAPUS SEMUA CLICK LOGS? Tindakan ini tidak bisa dibatalkan.')">@csrf
+      <input type="hidden" name="scope" value="all">
+      <button class="px-3 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700">Clear SEMUA</button>
+    </form>
+  </div>
+</div>
 <div class="bg-white rounded-2xl border border-line overflow-x-auto">
 @if ($logs->isEmpty())<div class="p-12 text-center text-muted">Belum ada klik tercatat.</div>
 @else

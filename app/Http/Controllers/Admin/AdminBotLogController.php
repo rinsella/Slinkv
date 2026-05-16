@@ -8,6 +8,7 @@ use App\Models\BotRule;
 use App\Models\ClickLog;
 use App\Services\AuditLogService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AdminBotLogController extends Controller
 {
@@ -53,5 +54,37 @@ class AdminBotLogController extends Controller
         ]);
         $this->audit->log('bot_rule_create_from_log', $rule);
         return back()->with('success', 'Rule user-agent dibuat.');
+    }
+
+    /**
+     * Bulk clear bot logs (rows flagged as bot or with high bot_score).
+     * scope = all | older_30d
+     */
+    public function clear(Request $request)
+    {
+        $request->validate(['scope' => ['required', 'in:all,older_30d']]);
+        $scope = $request->input('scope');
+
+        $base = DB::table('click_logs')->where(function ($w) {
+            $w->where('is_bot', true)->orWhere('bot_score', '>=', 40);
+        });
+        $label = 'bot logs';
+        if ($scope === 'older_30d') {
+            $base->where('clicked_at', '<', now()->subDays(30));
+            $label = 'bot logs older than 30 days';
+        }
+
+        $total = 0;
+        do {
+            $deleted = (clone $base)->limit(5000)->delete();
+            $total += $deleted;
+        } while ($deleted > 0);
+
+        $this->audit->log('bot_logs_cleared', null, null, [
+            'scope' => $scope,
+            'deleted' => $total,
+        ]);
+
+        return back()->with('success', "Berhasil hapus {$total} {$label}.");
     }
 }

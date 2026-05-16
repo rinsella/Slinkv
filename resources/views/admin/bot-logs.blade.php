@@ -1,7 +1,25 @@
 @extends('layouts.admin')
 @section('title','Bot Logs')
 @section('content')
-<p class="text-sm text-muted mb-4">Klik dengan skor bot tinggi atau terdeteksi sebagai bot.</p>
+@if (session('success'))
+  <div class="mb-3 p-3 rounded-xl bg-emerald-50 text-emerald-700 text-sm">{{ session('success') }}</div>
+@endif
+@if (session('error'))
+  <div class="mb-3 p-3 rounded-xl bg-red-50 text-red-700 text-sm">{{ session('error') }}</div>
+@endif
+<div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+  <p class="text-sm text-muted">Klik dengan skor bot tinggi atau terdeteksi sebagai bot.</p>
+  <div class="flex flex-wrap gap-2">
+    <form method="POST" action="{{ route('admin.bot-logs.clear') }}" onsubmit="return confirm('Hapus bot logs lebih dari 30 hari?')">@csrf
+      <input type="hidden" name="scope" value="older_30d">
+      <button class="px-3 py-2 rounded-xl bg-amber-50 text-amber-700 text-sm font-semibold border border-amber-200 hover:bg-amber-100">Clear &gt;30 hari</button>
+    </form>
+    <form method="POST" action="{{ route('admin.bot-logs.clear') }}" onsubmit="return confirm('HAPUS SEMUA BOT LOGS? Tindakan ini tidak bisa dibatalkan.')">@csrf
+      <input type="hidden" name="scope" value="all">
+      <button class="px-3 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700">Clear SEMUA Bot Logs</button>
+    </form>
+  </div>
+</div>
 <div class="bg-white rounded-2xl border border-line overflow-x-auto">
 @if ($logs->isEmpty())<div class="p-12 text-center text-muted">Tidak ada aktivitas bot terdeteksi.</div>
 @else
