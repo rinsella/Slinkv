@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#4F46E5"/>
+    </linearGradient>
+    <linearGradient id="v" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#C4B5FD"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <text x="600" y="320" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="160" font-weight="800" fill="#fff">slink<tspan fill="url(#v)">v</tspan></text>
+  <text x="600" y="410" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="36" fill="#E0E7FF">Link Pendek · Traffic Bersih · Analytics Real-time</text>
+</svg>
