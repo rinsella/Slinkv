@@ -5,21 +5,58 @@ use Illuminate\Http\Request;
 define('LARAVEL_START', microtime(true));
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Slinkv pre-boot edge guard (v0.4.11)
+// Slinkv pre-boot edge guard (v0.4.12)
 // Block bot floods BEFORE composer autoload — avoids ~100ms Laravel boot
 // per malicious request. Uses APCu if available (in-memory, ~0.05ms),
 // otherwise small flat files in storage/framework/cache/edge (~0.5ms).
 // Limits: 20 hits / 10s per IP -> 5 min block. Only guards /{slug} paths.
+// Excludes known app routes via denylist (dashboard, login, admin, etc).
 // ─────────────────────────────────────────────────────────────────────────────
 (static function (): void {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-    // Only guard short-redirect routes: /{slug} where slug is 1-32 [A-Za-z0-9_-]
-    if (!preg_match('#^/[A-Za-z0-9_\-]{1,32}/?$#', $path)) {
+
+    // Quick reject for non-redirect paths.
+    // Strategy: only guard single-segment paths that look like short slugs
+    // AND aren't known app routes.
+    $segments = explode('/', trim($path, '/'));
+    if (count($segments) !== 1) {
+        return; // multi-segment -> never a /{slug} redirect
+    }
+    $first = $segments[0];
+    if ($first === '') {
+        return; // home page
+    }
+
+    // App routes / static files that share the slug character set —
+    // these must NEVER be throttled.
+    static $appPaths = [
+        // auth
+        'login', 'register', 'logout',
+        'forgot-password', 'reset-password', 'password',
+        'email', 'verify',
+        // areas
+        'dashboard', 'admin', 'api',
+        // public pages
+        'pricing', 'paket', 'solusi', 'cara-kerja', 'artikel',
+        'faq', 'tentang', 'kontak', 'terms', 'privacy',
+        'refund-policy', 'acceptable-use-policy', 'abuse',
+        'quick-shorten',
+        // assets / build
+        'build', 'storage', 'vendor', 'css', 'js', 'img', 'images', 'assets',
+        // reserved files
+        'index.php', 'robots.txt', 'sitemap.xml', 'favicon.ico',
+        'site.webmanifest', 'apple-touch-icon.png',
+        // hotfix / install / debug helpers
+        'install.php', 'debug.php', 'fix-bot-ddos.php', 'fix-clear-logs.php',
+        'fix-edge-guard.php', 'fix-edge-guard-v2.php', 'fix-activate-user.php',
+        'fix-mobile-sidebar.php', 'fix-runtime-dirs.php',
+    ];
+    if (in_array($first, $appPaths, true)) {
         return;
     }
-    // Skip well-known reserved paths
-    static $reserved = ['/index.php', '/robots.txt', '/favicon.ico', '/sitemap.xml', '/site.webmanifest'];
-    if (in_array($path, $reserved, true)) {
+
+    // Must look like a short slug: 1-32 chars of [A-Za-z0-9_-]
+    if (!preg_match('#^[A-Za-z0-9_\-]{1,32}$#', $first)) {
         return;
     }
 
