@@ -3,9 +3,7 @@
 @section('body')
 <header class="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-line">
   <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-    <a href="{{ route('home') }}" class="flex items-center gap-2 text-2xl">
-      <span class="brand-slink">slink</span><span class="brand-v">v</span>
-    </a>
+    <a href="{{ route('home') }}" class="text-2xl"><span class="brand-slink">slink</span><span class="brand-v">v</span></a>
     <nav class="hidden lg:flex items-center gap-7 text-sm text-muted font-medium">
       <a href="{{ route('solutions') }}" class="hover:text-ink">Solusi</a>
       <a href="{{ route('how-it-works') }}" class="hover:text-ink">Cara Kerja</a>
@@ -44,9 +42,7 @@
 <footer class="mt-20 bg-white border-t border-line">
   <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
     <div class="col-span-2 md:col-span-1">
-      <a href="{{ route('home') }}" class="flex items-center gap-2 text-2xl mb-3">
-        <span class="brand-slink">slink</span><span class="brand-v">v</span>
-      </a>
+      <a href="{{ route('home') }}" class="text-2xl mb-3 inline-block"><span class="brand-slink">slink</span><span class="brand-v">v</span></a>
       <p class="text-muted">Link Pendek. Traffic Bersih. Analytics Real-time.</p>
     </div>
     <div>

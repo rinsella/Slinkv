@@ -15,9 +15,7 @@
   <aside class="fixed inset-y-0 left-0 z-50 w-[240px] bg-white border-r border-line flex flex-col transform lg:transform-none transition-transform"
          :class="sidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
     <div class="px-5 h-16 flex items-center justify-between border-b border-line">
-      <a href="{{ route('dashboard.index') }}" class="text-2xl">
-        <span class="brand-slink">slink</span><span class="brand-v">v</span>
-      </a>
+      <a href="{{ route('dashboard.index') }}" class="text-2xl"><span class="brand-slink">slink</span><span class="brand-v">v</span></a>
       <button class="lg:hidden p-2" x-on:click="sidebar=false" aria-label="Tutup">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
