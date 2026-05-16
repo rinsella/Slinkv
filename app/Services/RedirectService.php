@@ -168,30 +168,61 @@ class RedirectService
             $now = now();
             $countsClick = !in_array($action, ['password_required', 'password_failed'], true);
 
-            ClickLog::create([
-                'short_link_id' => $link->id,
-                'user_id' => $link->user_id,
-                'ip_hash' => $ip ? hash('sha256', $ip) : null,
-                'user_agent' => $request->userAgent(),
-                'referer' => $request->headers->get('referer'),
-                'country_code' => $geoInfo['country_code'],
-                'country_name' => $geoInfo['country_name'],
-                'city' => $geoInfo['city'],
-                'device_type' => $deviceInfo['device'],
-                'browser' => $deviceInfo['browser'],
-                'os' => $deviceInfo['os'],
-                'source_platform' => $sourceName,
-                'source_id' => $request->query('utm_source') ?? $request->query('source_id'),
-                'is_bot' => $isBot,
-                'bot_score' => $score,
-                'bot_reasons' => $reasons,
-                'action' => $action,
-                'redirected_to' => $target,
-                'clicked_at' => $now,
-                'created_at' => $now,
-            ]);
+            // Sampling: under bot/DDoS load this method gets called thousands of
+            // times per minute by the same IP. Writing every row to click_logs +
+            // 3 aggregate tables overwhelms MySQL CPU. We keep accurate aggregate
+            // counters but only persist ~1-in-N raw rows for repeated bot hits
+            // from the same IP. Human/redirected/blocked-non-bot hits are always
+            // fully logged.
+            $shouldInsertRow = true;
+            if ($isBot && $ip) {
+                $burstKey = 'log_sample:' . hash('sha256', $ip) . ':' . $link->id;
+                try {
+                    $fast = \Illuminate\Support\Facades\Cache::store('file');
+                    $count = (int) $fast->get($burstKey, 0);
+                    $fast->put($burstKey, $count + 1, 60);
+                    // Keep the first 3 hits per IP/link/min, then 1-in-50.
+                    if ($count >= 3 && ($count % 50) !== 0) {
+                        $shouldInsertRow = false;
+                    }
+                } catch (\Throwable $e) {
+                    // sampling is best-effort; on cache failure we just log normally
+                }
+            }
+
+            if ($shouldInsertRow) {
+                ClickLog::create([
+                    'short_link_id' => $link->id,
+                    'user_id' => $link->user_id,
+                    'ip_hash' => $ip ? hash('sha256', $ip) : null,
+                    'user_agent' => $request->userAgent(),
+                    'referer' => $request->headers->get('referer'),
+                    'country_code' => $geoInfo['country_code'],
+                    'country_name' => $geoInfo['country_name'],
+                    'city' => $geoInfo['city'],
+                    'device_type' => $deviceInfo['device'],
+                    'browser' => $deviceInfo['browser'],
+                    'os' => $deviceInfo['os'],
+                    'source_platform' => $sourceName,
+                    'source_id' => $request->query('utm_source') ?? $request->query('source_id'),
+                    'is_bot' => $isBot,
+                    'bot_score' => $score,
+                    'bot_reasons' => $reasons,
+                    'action' => $action,
+                    'redirected_to' => $target,
+                    'clicked_at' => $now,
+                    'created_at' => $now,
+                ]);
+            }
 
             if (!$countsClick) {
+                return;
+            }
+
+            // If sampling skipped the raw row, also skip aggregate updates so
+            // raw + aggregate stay internally consistent and we incur ZERO
+            // additional DB writes for sampled bot floods.
+            if (!$shouldInsertRow) {
                 return;
             }
 

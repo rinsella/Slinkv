@@ -41,8 +41,8 @@
   <aside data-sidebar class="slv-sidebar fixed inset-y-0 left-0 z-50 w-[240px] bg-ink text-white flex flex-col transform lg:transform-none transition-transform -translate-x-full lg:translate-x-0" :class="sidebar?'translate-x-0':'-translate-x-full lg:translate-x-0'">
     <div class="px-5 h-16 flex items-center justify-between border-b border-white/10">
       <a href="{{ route('admin.dashboard') }}" class="text-xl font-bold">slinkv <span class="text-xs text-primary">admin</span></a>
-      <button type="button" class="lg:hidden p-2" data-sidebar-close x-on:click="sidebar=false" aria-label="Tutup">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      <button type="button" class="lg:hidden p-3 -mr-2 inline-flex items-center justify-center" data-sidebar-close x-on:click="sidebar=false" aria-label="Tutup">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
     <nav class="flex-1 overflow-y-auto px-2 py-3 text-sm">
@@ -72,8 +72,8 @@
   </aside>
   <div class="lg:pl-[240px]">
     <header class="sticky top-0 z-30 h-16 bg-white border-b border-line flex items-center px-4 sm:px-6 gap-3">
-      <button type="button" class="lg:hidden p-2 -ml-2" data-sidebar-open x-on:click="sidebar=true" aria-label="Menu">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      <button type="button" class="lg:hidden p-3 -ml-2 inline-flex items-center justify-center" data-sidebar-open x-on:click="sidebar=true" aria-label="Menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <h1 class="text-lg font-semibold">@yield('title', 'Admin')</h1>
       <a href="{{ route('home') }}" class="ml-auto text-sm text-primary hover:underline">Lihat Site →</a>

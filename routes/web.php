@@ -172,5 +172,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
 // =================== Catch-all redirect (MUST BE LAST) ===================
 Route::get('/{slug}', RedirectController::class)
+    ->middleware(\App\Http\Middleware\RedirectRateLimit::class)
     ->where('slug', '[A-Za-z0-9_-]{1,32}')
     ->name('redirect');
