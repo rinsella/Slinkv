@@ -18,6 +18,14 @@
 
 declare(strict_types=1);
 
+// Bust OPcache for this file so cPanel can't serve a stale compiled copy.
+if (function_exists('opcache_invalidate')) {
+    @opcache_invalidate(__FILE__, true);
+}
+
+// Visible build marker so user can verify the right file is running.
+const INSTALLER_VERSION = 'v0.4.2-2026051601';
+
 // Show all errors inside installer so we never blank-500 on shared hosting.
 @ini_set('display_errors', '1');
 @ini_set('display_startup_errors', '1');
@@ -48,6 +56,12 @@ $CSRF = $_SESSION['csrf_token'];
 $step = (int)($_GET['step'] ?? 1);
 if ($step < 1 || $step > 6) {
     $step = 1;
+}
+
+// On a fresh GET of step 5, clear any stale install_log from previous failed
+// attempts so the user doesn't see ghost errors from an older code path.
+if ($step === 5 && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    unset($_SESSION['install_log']);
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +231,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $kv['DB_USERNAME'] = $db['username'];
                     $kv['DB_PASSWORD'] = $db['password'];
                 }
+
+                // Generate APP_KEY ourselves so we never depend on `php artisan
+                // key:generate` (which has caused arg-parsing issues on some
+                // shared hosts). Format matches what Laravel writes.
+                $kv['APP_KEY'] = 'base64:' . base64_encode(random_bytes(32));
+
                 env_set($ENV, $kv);
 
                 // Bootstrap Laravel.
@@ -226,6 +246,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $kernel->bootstrap();
 
                 $log = [];
+                $log[] = '[OK] APP_KEY generated in-PHP and written to .env';
+
                 $runArt = function (string $command, array $params = []) use ($kernel, &$log) {
                     $output = new Symfony\Component\Console\Output\BufferedOutput();
                     try {
@@ -238,9 +260,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     return $code === 0;
                 };
 
-                $okKey  = $runArt('key:generate', ['--force' => true]);
-                $okMig  = $runArt('migrate',      ['--force' => true]);
-                $okSeed = $runArt('db:seed',      ['--force' => true]);
+                // APP_KEY already written, skip key:generate.
+                $okKey  = true;
+                $okMig  = $runArt('migrate', ['--force' => true]);
+                $okSeed = $runArt('db:seed', ['--force' => true]);
 
                 // Create admin via Eloquent.
                 $admin = $_SESSION['admin'];
@@ -334,7 +357,7 @@ pre { background: #0F172A; color: #F8FAFC; padding: 12px; border-radius: 10px; o
 <div class="wrap">
   <div class="card">
     <h1>Slink<span class="v">V</span> Installer</h1>
-    <div class="muted">Step <?= $step ?> dari 6</div>
+    <div class="muted">Step <?= $step ?> dari 6 · build <?= h(INSTALLER_VERSION) ?></div>
     <div class="steps">
       <?php for ($i = 1; $i <= 6; $i++): ?>
         <div class="<?= $i <= $step ? 'done' : '' ?>"></div>
@@ -444,7 +467,7 @@ pre { background: #0F172A; color: #F8FAFC; padding: 12px; border-radius: 10px; o
       <?php session_destroy(); ?>
     <?php endif; ?>
   </div>
-  <p class="muted" style="text-align:center; margin-top:20px;">SlinkV Installer v3 · PILIHAN 2 (standalone /install.php)</p>
+  <p class="muted" style="text-align:center; margin-top:20px;">SlinkV Installer <?= h(INSTALLER_VERSION) ?> · file mtime <?= h(date('Y-m-d H:i:s', @filemtime(__FILE__) ?: 0)) ?></p>
 </div>
 </body>
 </html>
