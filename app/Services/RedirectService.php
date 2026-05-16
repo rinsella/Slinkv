@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\BlockedIp;
 use App\Models\ClickLog;
 use App\Models\LinkDailyStat;
 use App\Models\LinkHourlyStat;
 use App\Models\ShortLink;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -17,11 +19,11 @@ class RedirectService
         private DeviceDetectionService $device,
         private SourceDetectionService $source,
         private GeoIpService $geo,
+        private PlanLimitService $limits,
     ) {}
 
     /**
-     * Process a slug click and return [redirectUrl, action, view, viewData].
-     * action: redirected | blocked | fallback | expired | quota_exceeded | password_required | not_found
+     * action: redirect | blocked | expired | inactive | quota_exceeded | password_required | not_found
      */
     public function handle(string $slug, Request $request): array
     {
@@ -35,23 +37,45 @@ class RedirectService
             return ['action' => 'inactive', 'link' => $link];
         }
 
-        if ($link->isExpired()) {
-            $action = 'expired';
+        $ip = $request->ip();
+
+        // 1. Blocked IP — ALWAYS applies regardless of bot_protection setting.
+        if ($ip && $this->isIpBlocked($ip)) {
+            $deviceInfo = $this->device->detect($request->userAgent());
+            $sourceName = $this->source->detect($request->headers->get('referer'), $request->query());
+            $geoInfo = $this->geo->lookup($ip);
             $target = $link->fallback_url;
-            $this->logClick($link, $request, $action, $target, ['expired']);
+            $this->logClickFull($link, $request, 'blocked', $target, $deviceInfo, $sourceName, $geoInfo, ['ip_blocked'], true, 100);
+            if ($target) return ['action' => 'redirect', 'url' => $target];
+            return ['action' => 'blocked', 'link' => $link, 'reason' => 'ip'];
+        }
+
+        // 2. Expired
+        if ($link->isExpired()) {
+            $target = $link->fallback_url;
+            $this->logClick($link, $request, 'expired', $target, ['expired']);
             if ($target) return ['action' => 'redirect', 'url' => $target];
             return ['action' => 'expired', 'link' => $link];
         }
 
-        // Quota check (Free plan: 1000 clicks per link/month)
+        // 3. Password-protected
+        if (!empty($link->password)) {
+            $unlocked = (array) $request->session()->get('unlocked_links', []);
+            if (empty($unlocked[$slug])) {
+                $this->logClick($link, $request, 'password_required', null, ['password_required']);
+                return ['action' => 'password_required', 'link' => $link, 'slug' => $slug];
+            }
+        }
+
+        // 4. Quota (beta-aware via PlanLimitService)
         $owner = $link->user;
-        $plan = $owner?->effectivePlan();
-        if ($plan && $plan->max_clicks_per_link) {
+        $quota = $owner ? $this->limits->clickQuotaPerLink($owner) : null;
+        if ($quota !== null && $quota > 0) {
             $startMonth = now()->startOfMonth();
             $monthClicks = ClickLog::where('short_link_id', $link->id)
                 ->where('clicked_at', '>=', $startMonth)
                 ->count();
-            if ($monthClicks >= (int) $plan->max_clicks_per_link) {
+            if ($monthClicks >= (int) $quota) {
                 $target = $link->fallback_url;
                 $this->logClick($link, $request, 'quota_exceeded', $target, ['quota_exceeded']);
                 if ($target) return ['action' => 'redirect', 'url' => $target];
@@ -60,7 +84,6 @@ class RedirectService
         }
 
         $ua = $request->userAgent();
-        $ip = $request->ip();
         $referer = $request->headers->get('referer');
         $headers = [
             'accept-language' => $request->headers->get('accept-language'),
@@ -71,7 +94,6 @@ class RedirectService
         $sourceName = $this->source->detect($referer, $request->query());
         $geoInfo = $this->geo->lookup($ip);
 
-        // Bot detection
         $botResult = ['is_bot' => false, 'score' => 0, 'reasons' => []];
         if ($link->bot_protection_enabled) {
             $botResult = $this->bot->evaluate([
@@ -83,7 +105,6 @@ class RedirectService
             ]);
         }
 
-        // Geo filter
         if ($link->geo_filter_enabled) {
             $cc = $geoInfo['country_code'];
             $allowed = $link->allowed_countries ?: [];
@@ -97,7 +118,6 @@ class RedirectService
             }
         }
 
-        // Device filter
         if ($link->device_filter !== 'all') {
             $cat = $this->device->deviceCategoryForFilter($deviceInfo['device']);
             if ($cat !== $link->device_filter) {
@@ -120,6 +140,19 @@ class RedirectService
         return ['action' => 'redirect', 'url' => $target];
     }
 
+    public function isIpBlocked(string $ip): bool
+    {
+        $hash = hash('sha256', $ip);
+        return Cache::remember("blocked_ip:{$hash}", 300, fn () =>
+            BlockedIp::where('ip_hash', $hash)
+                ->where('is_active', true)
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->exists()
+        );
+    }
+
     private function logClick(ShortLink $link, Request $request, string $action, ?string $target, array $reasons): void
     {
         $deviceInfo = $this->device->detect($request->userAgent());
@@ -133,6 +166,7 @@ class RedirectService
         try {
             $ip = $request->ip() ?? '';
             $now = now();
+            $countsClick = !in_array($action, ['password_required', 'password_failed'], true);
 
             ClickLog::create([
                 'short_link_id' => $link->id,
@@ -157,6 +191,10 @@ class RedirectService
                 'created_at' => $now,
             ]);
 
+            if (!$countsClick) {
+                return;
+            }
+
             DB::table('short_links')->where('id', $link->id)->update([
                 'total_clicks' => DB::raw('total_clicks + 1'),
                 'human_clicks' => DB::raw('human_clicks + ' . ($isBot ? 0 : 1)),
@@ -164,7 +202,6 @@ class RedirectService
                 'last_clicked_at' => $now,
             ]);
 
-            // daily aggregate
             $date = $now->toDateString();
             LinkDailyStat::firstOrCreate(
                 ['short_link_id' => $link->id, 'date' => $date],
@@ -179,7 +216,6 @@ class RedirectService
                     'updated_at' => $now,
                 ]);
 
-            // hourly aggregate
             $hour = $now->copy()->startOfHour();
             LinkHourlyStat::firstOrCreate(
                 ['short_link_id' => $link->id, 'datetime_hour' => $hour],

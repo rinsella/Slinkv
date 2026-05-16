@@ -1,10 +1,13 @@
 @extends('layouts.admin')
 @section('title','Users')
 @section('content')
-<form method="GET" class="mb-4 flex gap-2">
-  <input name="q" value="{{ request('q') }}" placeholder="Cari nama/email..." class="flex-1 max-w-md rounded-xl border-line">
-  <button class="px-4 py-2 rounded-xl bg-primary text-white text-sm">Cari</button>
-</form>
+<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+  <form method="GET" class="flex gap-2 flex-1 max-w-md">
+    <input name="q" value="{{ request('q') }}" placeholder="Cari nama/email..." class="flex-1 rounded-xl border-line">
+    <button class="px-4 py-2 rounded-xl bg-primary text-white text-sm">Cari</button>
+  </form>
+  <a href="{{ route('admin.users.create') }}" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold">+ Tambah User</a>
+</div>
 <div class="bg-white rounded-2xl border border-line overflow-hidden">
   @if ($users->isEmpty())<div class="p-10 text-center text-muted">Belum ada user.</div>
   @else

@@ -46,6 +46,16 @@ Route::get('/acceptable-use-policy', [PublicController::class, 'aup'])->name('au
 Route::get('/robots.txt', [PublicController::class, 'robots']);
 Route::get('/sitemap.xml', [PublicController::class, 'sitemap']);
 
+// Public abuse report
+Route::get('/abuse', [PublicController::class, 'abuse'])->name('abuse');
+Route::post('/abuse', [PublicController::class, 'abuseStore'])->middleware('throttle:5,1')->name('abuse.store');
+
+// Password-protected shortlink unlock (handled separately so it doesn't collide with /{slug})
+Route::post('/{slug}/unlock', [RedirectController::class, 'unlock'])
+    ->where('slug', '[A-Za-z0-9_-]{1,32}')
+    ->middleware('throttle:20,1')
+    ->name('redirect.unlock');
+
 // =================== Auth ===================
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
@@ -72,12 +82,17 @@ Route::middleware(['auth'])->prefix('dashboard')->name('dashboard.')->group(func
     Route::patch('/links/{link}/toggle', [LinkController::class, 'toggle'])->name('links.toggle');
     Route::get('/links/{link}/analytics', [LinkController::class, 'analytics'])->name('links.analytics');
     Route::get('/links/{link}/qr', [LinkController::class, 'qr'])->name('links.qr');
+    Route::get('/links/{link}/qr.png', [LinkController::class, 'qrPng'])->name('links.qr.png');
+    Route::get('/links/{link}/export.csv', [LinkController::class, 'exportCsv'])->name('links.export');
+    Route::get('/links/{link}/audit-report', [LinkController::class, 'auditReport'])->name('links.audit-report');
 
     Route::get('/statistics', [DashboardController::class, 'statistics'])->name('statistics');
     Route::get('/location-device', [DashboardController::class, 'locationDevice'])->name('location-device');
     Route::get('/sources', [DashboardController::class, 'sources'])->name('sources');
     Route::get('/referral', [DashboardController::class, 'referral'])->name('referral');
     Route::get('/billing', [DashboardController::class, 'billing'])->name('billing');
+    Route::post('/billing/checkout/{plan}', [DashboardController::class, 'checkout'])->name('billing.checkout');
+    Route::get('/billing/invoices/{payment}', [DashboardController::class, 'invoice'])->name('billing.invoice');
     Route::get('/settings', [DashboardController::class, 'settings'])->name('settings');
     Route::patch('/settings/profile', [DashboardController::class, 'updateProfile'])->name('settings.profile');
     Route::patch('/settings/password', [DashboardController::class, 'updatePassword'])->name('settings.password');
@@ -87,7 +102,7 @@ Route::middleware(['auth'])->prefix('dashboard')->name('dashboard.')->group(func
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
 
-    Route::resource('users', AdminUserController::class)->except(['create', 'store']);
+    Route::resource('users', AdminUserController::class)->except([]);
     Route::patch('users/{user}/suspend', [AdminUserController::class, 'suspend'])->name('users.suspend');
     Route::patch('users/{user}/activate', [AdminUserController::class, 'activate'])->name('users.activate');
     Route::patch('users/{user}/change-plan', [AdminUserController::class, 'changePlan'])->name('users.change-plan');

@@ -6,6 +6,9 @@ use App\Models\Article;
 use App\Models\ContactMessage;
 use App\Models\Faq;
 use App\Models\Plan;
+use App\Models\AbuseReport;
+use App\Models\Setting;
+use App\Models\ShortLink;
 use Illuminate\Http\Request;
 
 class PublicController extends Controller
@@ -77,6 +80,43 @@ class PublicController extends Controller
     public function privacy() { return view('public.legal', ['type' => 'privacy', 'title' => 'Kebijakan Privasi']); }
     public function refund() { return view('public.legal', ['type' => 'refund', 'title' => 'Kebijakan Refund']); }
     public function aup() { return view('public.legal', ['type' => 'aup', 'title' => 'Acceptable Use Policy']); }
+
+    public function abuse()
+    {
+        $enabled = (string) Setting::get('enable_abuse_report', '1') === '1';
+        return view('public.abuse', ['enabled' => $enabled]);
+    }
+
+    public function abuseStore(Request $request)
+    {
+        $enabled = (string) Setting::get('enable_abuse_report', '1') === '1';
+        if (!$enabled) {
+            return back()->withInput()->with('error', 'Formulir laporan sedang dinonaktifkan.');
+        }
+
+        $data = $request->validate([
+            'short_url' => ['required', 'string', 'max:500'],
+            'reporter_email' => ['nullable', 'email', 'max:255'],
+            'reason' => ['required', 'string', 'min:10', 'max:5000'],
+        ]);
+
+        $shortLinkId = null;
+        $path = parse_url($data['short_url'], PHP_URL_PATH) ?? $data['short_url'];
+        $slug = trim($path, '/');
+        if ($slug && preg_match('/^[A-Za-z0-9_-]{1,32}$/', $slug)) {
+            $shortLinkId = ShortLink::where('slug', $slug)->value('id');
+        }
+
+        AbuseReport::create([
+            'short_link_id' => $shortLinkId,
+            'short_url' => $data['short_url'],
+            'reporter_email' => $data['reporter_email'] ?? null,
+            'reason' => $data['reason'],
+            'status' => 'open',
+        ]);
+
+        return back()->with('success', 'Laporan terkirim. Tim kami akan meninjau link tersebut.');
+    }
 
     public function robots()
     {

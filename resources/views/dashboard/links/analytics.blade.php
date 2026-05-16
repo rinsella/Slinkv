@@ -6,10 +6,14 @@
     <h1 class="mt-1 text-2xl font-bold">{{ $link->title ?: $link->slug }}</h1>
     <a href="{{ $link->shortUrl() }}" target="_blank" class="text-sm font-mono text-primary hover:underline">{{ $link->shortUrl() }}</a>
   </div>
-  <div class="flex gap-2 text-sm">
+  <div class="flex flex-wrap gap-2 text-sm">
     @foreach ([1=>'24 jam',7=>'7 hari',30=>'30 hari',90=>'90 hari'] as $r => $label)
       <a href="?range={{ $r }}" class="px-3 py-1.5 rounded-xl {{ (int)request('range',7)===$r ? 'bg-primary text-white font-semibold' : 'bg-white border border-line' }}">{{ $label }}</a>
     @endforeach
+    <a href="{{ route('dashboard.links.qr', $link) }}?download=1" class="px-3 py-1.5 rounded-xl bg-white border border-line hover:bg-surface" title="Unduh QR Code (SVG)">QR SVG</a>
+    <a href="{{ route('dashboard.links.qr.png', $link) }}?download=1" class="px-3 py-1.5 rounded-xl bg-white border border-line hover:bg-surface" title="Unduh QR Code (PNG)">QR PNG</a>
+    <a href="{{ route('dashboard.links.export', $link) }}" class="px-3 py-1.5 rounded-xl bg-white border border-line hover:bg-surface" title="Export semua klik ke CSV">Export CSV</a>
+    <a href="{{ route('dashboard.links.audit-report', ['link' => $link, 'range' => (int) request('range',7)]) }}" class="px-3 py-1.5 rounded-xl bg-white border border-line hover:bg-surface" title="Lihat laporan audit keamanan">Audit Report</a>
   </div>
 </div>
 

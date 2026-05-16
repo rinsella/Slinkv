@@ -16,6 +16,8 @@ class ShortLinkService
         'cara-kerja','refund-policy','acceptable-use-policy','forgot-password',
         'reset-password','verify-email','email','ref','up','i','redirect',
         'favicon.ico','favicon.svg','apple-touch-icon.png','site.webmanifest',
+        'abuse','unlock','r','invoice','invoices','qr','q','export','export.csv',
+        'audit-report','checkout','billing','health-check','manifest.json',
     ];
 
     public function generateUniqueSlug(int $length = 6): string

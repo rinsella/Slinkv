@@ -30,6 +30,38 @@ class AdminUserController extends Controller
         return view('admin.users.index', compact('users'));
     }
 
+    public function create()
+    {
+        $plans = Plan::orderBy('sort_order')->get();
+        return view('admin.users.create', compact('plans'));
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8'],
+            'role' => ['required', Rule::in(['user', 'admin'])],
+            'status' => ['required', Rule::in(['active', 'suspended'])],
+            'plan_id' => ['nullable', 'exists:plans,id'],
+        ]);
+
+        $user = User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'role' => $data['role'],
+            'status' => $data['status'],
+            'plan_id' => $data['plan_id'] ?? null,
+            'email_verified_at' => now(),
+        ]);
+
+        $this->audit->log('user_create', $user, null, $user->only(['name', 'email', 'role', 'status', 'plan_id']), $user->id);
+
+        return redirect()->route('admin.users.show', $user)->with('success', 'User baru dibuat.');
+    }
+
     public function show(User $user)
     {
         $user->load('plan');

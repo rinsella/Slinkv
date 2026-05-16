@@ -62,6 +62,7 @@
         <li><a href="{{ route('articles') }}" class="hover:text-ink">Artikel</a></li>
         <li><a href="{{ route('faq') }}" class="hover:text-ink">FAQ</a></li>
         <li><a href="{{ route('contact') }}" class="hover:text-ink">Kontak</a></li>
+        <li><a href="{{ route('abuse') }}" class="hover:text-ink">Laporkan Penyalahgunaan</a></li>
       </ul>
     </div>
     <div>

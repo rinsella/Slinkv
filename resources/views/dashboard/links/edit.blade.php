@@ -15,6 +15,16 @@
       <label class="block text-sm font-medium mb-1">Judul</label>
       <input name="title" value="{{ old('title', $link->title) }}" class="w-full rounded-xl border-line focus:ring-primary focus:border-primary">
     </div>
+    @if ($plan->has_custom_alias)
+    <div>
+      <label class="block text-sm font-medium mb-1">Custom Alias (slug)</label>
+      <div class="flex">
+        <span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-line bg-surface text-sm text-muted font-mono">{{ request()->getSchemeAndHttpHost() }}/</span>
+        <input name="custom_alias" value="{{ old('custom_alias', $link->slug) }}" pattern="[A-Za-z0-9_-]{3,32}" class="w-full rounded-r-xl border-line focus:ring-primary focus:border-primary font-mono">
+      </div>
+      <p class="mt-1 text-xs text-muted">3-32 karakter (huruf, angka, - dan _). Mengubah alias akan mengubah URL pendek.</p>
+    </div>
+    @endif
     @if ($plan->has_fallback_url)
     <div>
       <label class="block text-sm font-medium mb-1">Fallback URL</label>
@@ -46,6 +56,20 @@
       </div>
     </div>
     @endif
+    <div class="border-t border-line pt-5">
+      <div class="text-sm font-medium mb-2">Password Protection</div>
+      @if ($link->password)
+        <div class="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-lg">Link ini saat ini dilindungi password.</div>
+      @endif
+      <input type="password" name="password" minlength="4" maxlength="64" autocomplete="new-password"
+        placeholder="{{ $link->password ? 'Isi untuk mengganti password' : 'Kosongkan jika tidak ingin pakai password' }}"
+        class="w-full rounded-xl border-line focus:ring-primary focus:border-primary">
+      @if ($link->password)
+        <label class="mt-2 flex items-center gap-2 text-sm text-red-700">
+          <input type="checkbox" name="remove_password" value="1" class="rounded border-line text-red-600 focus:ring-red-500"> Hapus password proteksi
+        </label>
+      @endif
+    </div>
     <div class="flex gap-2">
       <button class="px-5 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-700">Simpan Perubahan</button>
       <a href="{{ route('dashboard.links.index') }}" class="px-5 py-2.5 rounded-xl border border-line">Batal</a>

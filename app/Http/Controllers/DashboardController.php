@@ -128,7 +128,53 @@ class DashboardController extends Controller
         $plan = $user->effectivePlan();
         $sub = $user->activeSubscription();
         $invoices = \App\Models\Payment::where('user_id', $user->id)->latest()->take(20)->get();
-        return view('dashboard.billing', compact('plan','sub','invoices'));
+        $plans = \App\Models\Plan::where('is_active', true)->orderBy('sort_order')->get();
+        $beta = (string) \App\Models\Setting::get('beta_mode', '1') === '1';
+        return view('dashboard.billing', compact('plan','sub','invoices','plans','beta'));
+    }
+
+    public function checkout(Request $request, \App\Models\Plan $plan)
+    {
+        $user = $request->user();
+
+        if (!$plan->is_active) {
+            return back()->withErrors(['plan' => 'Paket ini sedang tidak aktif.']);
+        }
+
+        $beta = (string) \App\Models\Setting::get('beta_mode', '1') === '1';
+        if ($beta) {
+            return back()->with('success', 'Saat ini SlinkV dalam beta — semua fitur sudah tersedia gratis. Checkout dinonaktifkan sementara.');
+        }
+
+        // Generate INV-YYYYMMDD-XXXXXX
+        $invoiceNumber = 'INV-' . now()->format('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(6));
+        $expirationHours = (int) \App\Models\Setting::get('invoice_expiration_hours', 24);
+
+        $payment = \App\Models\Payment::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'amount' => $plan->price,
+            'currency' => 'IDR',
+            'invoice_number' => $invoiceNumber,
+            'status' => 'pending',
+            'gateway' => 'manual_transfer',
+            'expired_at' => now()->addHours($expirationHours),
+        ]);
+
+        return redirect()->route('dashboard.billing.invoice', $payment)
+            ->with('success', "Invoice {$invoiceNumber} dibuat. Selesaikan pembayaran dalam {$expirationHours} jam.");
+    }
+
+    public function invoice(Request $request, \App\Models\Payment $payment)
+    {
+        if ($payment->user_id !== $request->user()->id) {
+            abort(404);
+        }
+        $payment->load('plan');
+        $bankName = \App\Models\Setting::get('bank_account_name', 'PT SlinkV');
+        $bankBank = \App\Models\Setting::get('bank_account_bank', 'BCA');
+        $bankNumber = \App\Models\Setting::get('bank_account_number', '0000000000');
+        return view('dashboard.billing.invoice', compact('payment','bankName','bankBank','bankNumber'));
     }
 
     public function settings(Request $request)
