@@ -18,6 +18,11 @@
 
 declare(strict_types=1);
 
+// Show all errors inside installer so we never blank-500 on shared hosting.
+@ini_set('display_errors', '1');
+@ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
+
 $BASE = dirname(__DIR__);
 $LOCK = $BASE . '/storage/installed.lock';
 $ENV  = $BASE . '/.env';
@@ -176,87 +181,115 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Sesi tidak lengkap. Ulangi dari Step 1.';
         } elseif (!file_exists($BASE . '/vendor/autoload.php')) {
             $errors[] = 'vendor/autoload.php belum ada. Jalankan: composer install --no-dev --optimize-autoloader';
+        } elseif (!is_writable($BASE) && !file_exists($ENV)) {
+            $errors[] = 'Folder project tidak writable — tidak bisa membuat .env. Set permission 755 pada folder project.';
+        } elseif (file_exists($ENV) && !is_writable($ENV)) {
+            $errors[] = '.env ada tapi tidak writable. chmod 664 .env';
+        } elseif (!is_writable($BASE . '/storage') || !is_writable($BASE . '/bootstrap/cache')) {
+            $errors[] = 'storage/ atau bootstrap/cache/ tidak writable. chmod -R 775 storage bootstrap/cache';
         } else {
-            // Write .env.
-            $db = $_SESSION['db'];
-            $site = $_SESSION['site'];
-            $kv = [
-                'APP_NAME'      => $site['app_name'],
-                'APP_ENV'       => 'production',
-                'APP_DEBUG'     => 'false',
-                'APP_URL'       => $site['app_url'],
-                'DB_CONNECTION' => $db['driver'],
-            ];
-            if ($db['driver'] === 'sqlite') {
-                $kv['DB_DATABASE'] = $db['database'];
-            } else {
-                $kv['DB_HOST']     = $db['host'];
-                $kv['DB_PORT']     = $db['port'];
-                $kv['DB_DATABASE'] = $db['database'];
-                $kv['DB_USERNAME'] = $db['username'];
-                $kv['DB_PASSWORD'] = $db['password'];
-            }
-            env_set($ENV, $kv);
-
-            // Bootstrap Laravel.
-            require $BASE . '/vendor/autoload.php';
-            $app = require_once $BASE . '/bootstrap/app.php';
-            $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
-            $kernel->bootstrap();
-
-            $log = [];
-            $runArt = function (array $cmd) use ($kernel, &$log) {
-                $output = new Symfony\Component\Console\Output\BufferedOutput();
-                $code = $kernel->call($cmd[0], array_slice($cmd, 1), $output);
-                $log[] = '$ artisan ' . implode(' ', $cmd) . "\n" . $output->fetch();
-                return $code === 0;
-            };
-
-            $okKey  = $runArt(['key:generate', '--force']);
-            $okMig  = $runArt(['migrate', '--force']);
-            $okSeed = $runArt(['db:seed', '--force']);
-
-            // Create admin via Eloquent.
-            $admin = $_SESSION['admin'];
             try {
-                $userClass = 'App\\Models\\User';
-                $existing = $userClass::where('email', $admin['email'])->first();
-                if ($existing) {
-                    $existing->update([
-                        'name'     => $admin['name'],
-                        'password' => password_hash($admin['password'], PASSWORD_BCRYPT),
-                        'role'     => 'admin',
-                        'status'   => 'active',
-                    ]);
+                // Write .env.
+                $db = $_SESSION['db'];
+                $site = $_SESSION['site'];
+                $kv = [
+                    'APP_NAME'      => $site['app_name'],
+                    'APP_ENV'       => 'production',
+                    'APP_DEBUG'     => 'false',
+                    'APP_URL'       => $site['app_url'],
+                    'DB_CONNECTION' => $db['driver'],
+                ];
+                if ($db['driver'] === 'sqlite') {
+                    if (!is_dir(dirname($db['database']))) {
+                        @mkdir(dirname($db['database']), 0755, true);
+                    }
+                    if (!file_exists($db['database'])) {
+                        @touch($db['database']);
+                    }
+                    if (!file_exists($db['database']) || !is_writable($db['database'])) {
+                        throw new RuntimeException('SQLite file tidak bisa dibuat/ditulis: ' . $db['database']);
+                    }
+                    $kv['DB_DATABASE'] = $db['database'];
                 } else {
-                    $userClass::create([
-                        'name'     => $admin['name'],
-                        'email'    => $admin['email'],
-                        'password' => password_hash($admin['password'], PASSWORD_BCRYPT),
-                        'role'     => 'admin',
-                        'status'   => 'active',
-                        'email_verified_at' => date('Y-m-d H:i:s'),
-                    ]);
+                    $kv['DB_HOST']     = $db['host'];
+                    $kv['DB_PORT']     = $db['port'];
+                    $kv['DB_DATABASE'] = $db['database'];
+                    $kv['DB_USERNAME'] = $db['username'];
+                    $kv['DB_PASSWORD'] = $db['password'];
                 }
-                $okAdmin = true;
-            } catch (Throwable $e) {
-                $okAdmin = false;
-                $log[] = 'Admin create error: ' . $e->getMessage();
-            }
+                env_set($ENV, $kv);
 
-            $_SESSION['install_log'] = preg_replace(
-                '/(password[^=]*=)\s*\S+/i',
-                '$1[redacted]',
-                implode("\n\n", $log)
-            );
-            if ($okKey && $okMig && $okSeed && $okAdmin) {
-                if (!is_dir(dirname($LOCK))) {
-                    @mkdir(dirname($LOCK), 0755, true);
+                // Bootstrap Laravel.
+                require $BASE . '/vendor/autoload.php';
+                $app = require_once $BASE . '/bootstrap/app.php';
+                $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+                $kernel->bootstrap();
+
+                $log = [];
+                $runArt = function (array $cmd) use ($kernel, &$log) {
+                    $output = new Symfony\Component\Console\Output\BufferedOutput();
+                    try {
+                        $code = $kernel->call($cmd[0], array_slice($cmd, 1), $output);
+                    } catch (Throwable $e) {
+                        $log[] = '$ artisan ' . implode(' ', $cmd) . "\nEXCEPTION: " . $e->getMessage();
+                        return false;
+                    }
+                    $log[] = '$ artisan ' . implode(' ', $cmd) . "\n" . $output->fetch();
+                    return $code === 0;
+                };
+
+                $okKey  = $runArt(['key:generate', '--force']);
+                $okMig  = $runArt(['migrate', '--force']);
+                $okSeed = $runArt(['db:seed', '--force']);
+
+                // Create admin via Eloquent.
+                $admin = $_SESSION['admin'];
+                try {
+                    $userClass = 'App\\Models\\User';
+                    $existing = $userClass::where('email', $admin['email'])->first();
+                    if ($existing) {
+                        $existing->update([
+                            'name'     => $admin['name'],
+                            'password' => password_hash($admin['password'], PASSWORD_BCRYPT),
+                            'role'     => 'admin',
+                            'status'   => 'active',
+                        ]);
+                    } else {
+                        $userClass::create([
+                            'name'     => $admin['name'],
+                            'email'    => $admin['email'],
+                            'password' => password_hash($admin['password'], PASSWORD_BCRYPT),
+                            'role'     => 'admin',
+                            'status'   => 'active',
+                            'email_verified_at' => date('Y-m-d H:i:s'),
+                        ]);
+                    }
+                    $okAdmin = true;
+                } catch (Throwable $e) {
+                    $okAdmin = false;
+                    $log[] = 'Admin create error: ' . $e->getMessage();
                 }
-                file_put_contents($LOCK, date('c') . "\n");
-                header('Location: install.php?step=6'); exit;
+
+                $_SESSION['install_log'] = preg_replace(
+                    '/(password[^=]*=)\s*\S+/i',
+                    '$1[redacted]',
+                    implode("\n\n", $log)
+                );
+                if ($okKey && $okMig && $okSeed && $okAdmin) {
+                    if (!is_dir(dirname($LOCK))) {
+                        @mkdir(dirname($LOCK), 0755, true);
+                    }
+                    file_put_contents($LOCK, date('c') . "\n");
+                    header('Location: install.php?step=6'); exit;
+                }
+                $errors[] = 'Instalasi gagal. Lihat log di bawah.';
+            } catch (Throwable $e) {
+                $errors[] = 'FATAL: ' . $e->getMessage();
+                $_SESSION['install_log'] = ($_SESSION['install_log'] ?? '')
+                    . "\n\nFATAL EXCEPTION:\n" . $e->getMessage()
+                    . "\n" . $e->getFile() . ':' . $e->getLine()
+                    . "\n" . $e->getTraceAsString();
             }
-            $errors[] = 'Instalasi gagal. Lihat log di bawah.';
         }
     }
 }
