@@ -24,7 +24,7 @@ if (function_exists('opcache_invalidate')) {
 }
 
 // Visible build marker so user can verify the right file is running.
-const INSTALLER_VERSION = 'v0.4.2-2026051601';
+const INSTALLER_VERSION = 'v0.4.3-2026051602';
 
 // Show all errors inside installer so we never blank-500 on shared hosting.
 @ini_set('display_errors', '1');
@@ -203,6 +203,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'storage/ atau bootstrap/cache/ tidak writable. chmod -R 775 storage bootstrap/cache';
         } else {
             try {
+                // Make sure all Laravel runtime directories exist and are
+                // writable. Some hosts drop empty dirs during zip extraction,
+                // which causes "Please provide a valid cache path" later.
+                foreach ([
+                    'storage/framework',
+                    'storage/framework/cache',
+                    'storage/framework/cache/data',
+                    'storage/framework/sessions',
+                    'storage/framework/views',
+                    'storage/framework/testing',
+                    'storage/logs',
+                    'storage/app',
+                    'storage/app/public',
+                    'bootstrap/cache',
+                ] as $rel) {
+                    $abs = $BASE . '/' . $rel;
+                    if (!is_dir($abs)) {
+                        @mkdir($abs, 0775, true);
+                    }
+                    @chmod($abs, 0775);
+                }
+
                 // Write .env.
                 $db = $_SESSION['db'];
                 $site = $_SESSION['site'];
