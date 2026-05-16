@@ -20,7 +20,7 @@
         <button class="px-5 py-3 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-700">Dapatkan Link Gratis</button>
       </form>
       @error('destination_url')<div class="mt-2 text-sm text-red-600">{{ $message }}</div>@enderror
-      <p class="mt-3 text-xs text-muted">100% gratis selama tahap beta — tidak perlu kartu kredit.</p>
+      <p class="mt-3 text-xs text-muted">100% gratis selama tahap beta - tidak perlu kartu kredit.</p>
 
       <div class="mt-6 flex flex-wrap gap-3">
         <a href="{{ route('register') }}" class="px-5 py-3 rounded-xl bg-ink text-white text-sm font-semibold hover:opacity-90">Daftar Gratis</a>
@@ -77,8 +77,8 @@
     <p class="mt-2 text-muted max-w-2xl mx-auto">Cocok untuk advertiser, affiliate, agency, publisher, hingga tim media buyer.</p>
     <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
       @foreach ([
-        ['Meta & Google Ads','Pixel Protection — pixel hanya menerima data dari manusia asli.'],
-        ['Affiliate Shopee/TikTok','Click Validation — tahu sumber affiliate yang berkualitas.'],
+        ['Meta & Google Ads','Pixel Protection - pixel hanya menerima data dari manusia asli.'],
+        ['Affiliate Shopee/TikTok','Click Validation - tahu sumber affiliate yang berkualitas.'],
         ['Digital Agency','Independent Audit Report untuk klien.'],
         ['Media Buyer','Pisahkan traffic sampah dari source tertentu.'],
       ] as [$t,$d])
@@ -98,7 +98,7 @@
     <div class="max-w-3xl mx-auto text-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white p-10 shadow-card">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-bold uppercase tracking-wider">Beta</div>
       <h2 class="mt-4 text-3xl sm:text-4xl font-extrabold">Semua Fitur. 100% Gratis.</h2>
-      <p class="mt-3 text-white/85 max-w-xl mx-auto">Selama masa beta, seluruh fitur SlinkV — termasuk link unlimited, analytics lengkap, bot protection canggih, custom alias, dan QR code — tersedia gratis untuk semua pengguna.</p>
+      <p class="mt-3 text-white/85 max-w-xl mx-auto">Selama masa beta, seluruh fitur SlinkV - termasuk link unlimited, analytics lengkap, bot protection canggih, custom alias, dan QR code - tersedia gratis untuk semua pengguna.</p>
       <div class="mt-6 flex flex-wrap gap-3 justify-center">
         <a href="{{ route('register') }}" class="px-6 py-3 rounded-xl bg-white text-primary text-sm font-bold hover:opacity-90">Daftar Sekarang</a>
         <a href="{{ route('how-it-works') }}" class="px-6 py-3 rounded-xl bg-white/10 border border-white/20 text-sm font-semibold hover:bg-white/15">Pelajari Selengkapnya</a>

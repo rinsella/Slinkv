@@ -9,7 +9,7 @@
     @foreach ([
       ['1','Daftar Gratis','Buat akun dalam hitungan detik. Tidak perlu kartu kredit.'],
       ['2','Buat Short Link','Tempel URL panjang Anda dan dapatkan link pendek profesional.'],
-      ['3','Sebarkan Link','Pakai di iklan, affiliate, sosial media, email — di mana saja.'],
+      ['3','Sebarkan Link','Pakai di iklan, affiliate, sosial media, email - di mana saja.'],
       ['4','Pantau Analytics','Lihat data real-time: human, bot, sumber, negara, device.'],
     ] as [$n,$t,$d])
       <div class="rounded-2xl border border-line bg-white p-6 text-center">

@@ -4,7 +4,7 @@
 <p class="text-muted text-sm mb-6">Performa 14 hari terakhir.</p>
 
 <div class="bg-white rounded-2xl shadow-card border border-line p-5 mb-6">
-  <h3 class="font-semibold mb-4">Klik Harian — Human vs Bot</h3>
+  <h3 class="font-semibold mb-4">Klik Harian - Human vs Bot</h3>
   @if (array_sum($human) + array_sum($bot) === 0)
     <div class="h-48 flex items-center justify-center text-muted text-sm">Belum ada data klik dalam 14 hari terakhir.</div>
   @else

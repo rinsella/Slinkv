@@ -1,31 +1,32 @@
 @extends('layouts.admin')
 @section('title','Click Logs')
 @section('content')
-<div class="flex gap-2 mb-4 text-sm">
-  <a href="?type=" class="px-3 py-1.5 rounded-xl {{ !request('type') ? 'bg-primary text-white' : 'bg-white border border-line' }}">Semua</a>
-  <a href="?type=human" class="px-3 py-1.5 rounded-xl {{ request('type')==='human' ? 'bg-primary text-white' : 'bg-white border border-line' }}">Human</a>
-  <a href="?type=bot" class="px-3 py-1.5 rounded-xl {{ request('type')==='bot' ? 'bg-primary text-white' : 'bg-white border border-line' }}">Bot</a>
+<form method="GET" class="flex flex-wrap gap-2 mb-4">
+  <input name="short_link" value="{{ request('short_link') }}" placeholder="Short code..." class="rounded-xl border-line text-sm">
+  <select name="type" class="rounded-xl border-line text-sm"><option value="">Semua</option><option value="human" @selected(request('type')==='human')>Human</option><option value="bot" @selected(request('type')==='bot')>Bot</option></select>
+  <input name="country" value="{{ request('country') }}" placeholder="Country code..." class="rounded-xl border-line text-sm uppercase" maxlength="2">
+  <input name="source" value="{{ request('source') }}" placeholder="Source..." class="rounded-xl border-line text-sm">
+  <button class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold">Filter</button>
+</form>
+<div class="bg-white rounded-2xl border border-line overflow-x-auto">
+@if ($logs->isEmpty())<div class="p-12 text-center text-muted">Belum ada klik tercatat.</div>
+@else
+<table class="w-full text-sm">
+  <thead class="bg-surface text-xs text-muted"><tr><th class="text-left p-3">Waktu</th><th class="text-left p-3">Link</th><th class="text-left p-3">Type</th><th class="text-left p-3">Country</th><th class="text-left p-3">Source</th><th class="text-left p-3">UA</th></tr></thead>
+  <tbody class="divide-y divide-line">
+  @foreach ($logs as $log)
+    <tr>
+      <td class="p-3 text-xs">{{ $log->created_at?->format('d/m H:i:s') }}</td>
+      <td class="p-3 font-mono text-xs">{{ $log->shortLink?->short_code ?? '-' }}</td>
+      <td class="p-3"><span class="px-2 py-0.5 rounded-full text-xs {{ $log->is_bot ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">{{ $log->is_bot ? 'bot' : 'human' }}</span></td>
+      <td class="p-3 text-xs">{{ $log->country_code ?: '-' }}</td>
+      <td class="p-3 text-xs">{{ $log->source ?: '-' }}</td>
+      <td class="p-3 text-xs text-muted">{{ \Illuminate\Support\Str::limit($log->user_agent, 40) }}</td>
+    </tr>
+  @endforeach
+  </tbody>
+</table>
+@endif
 </div>
-<div class="bg-white rounded-2xl border border-line overflow-hidden">
-  @if ($logs->isEmpty())<div class="p-10 text-center text-muted">Belum ada log.</div>
-  @else
-  <table class="w-full text-sm">
-    <thead class="bg-surface text-muted text-xs"><tr><th class="text-left p-3">Waktu</th><th class="text-left p-3">Link</th><th class="text-left p-3">Negara</th><th class="text-left p-3">Source</th><th class="text-left p-3">Device</th><th class="text-center p-3">Status</th><th class="text-right p-3">Score</th></tr></thead>
-    <tbody class="divide-y divide-line">
-    @foreach ($logs as $l)
-      <tr>
-        <td class="p-3 text-xs">{{ $l->clicked_at?->format('d/m H:i:s') }}</td>
-        <td class="p-3 font-mono text-primary text-xs">{{ $l->shortLink?->slug }}</td>
-        <td class="p-3 text-xs">{{ $l->country_name ?: '—' }}</td>
-        <td class="p-3 text-xs">{{ $l->source_platform ?: '—' }}</td>
-        <td class="p-3 text-xs">{{ $l->device_type ?: '—' }}</td>
-        <td class="p-3 text-center">@if ($l->is_bot)<span class="px-2 py-0.5 rounded-full text-[10px] bg-red-100 text-red-700 font-bold">BOT</span>@else<span class="px-2 py-0.5 rounded-full text-[10px] bg-green-100 text-green-700 font-bold">HUMAN</span>@endif</td>
-        <td class="p-3 text-right text-xs">{{ $l->bot_score }}</td>
-      </tr>
-    @endforeach
-    </tbody>
-  </table>
-  <div class="p-4 border-t border-line">{{ $logs->links() }}</div>
-  @endif
-</div>
+<div class="mt-4">{{ $logs->withQueryString()->links() }}</div>
 @endsection

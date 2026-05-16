@@ -4,7 +4,7 @@
   <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 text-center">
     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">Beta · Gratis Untuk Semua</div>
     <h1 class="mt-5 text-4xl sm:text-5xl font-extrabold tracking-tight">Selama Beta, Semua Fitur Gratis</h1>
-    <p class="mt-4 text-lg text-muted">Kami sedang dalam tahap pengembangan aktif. Daftar sekarang untuk mendapat akses penuh tanpa biaya apa pun — tanpa kartu kredit, tanpa batasan.</p>
+    <p class="mt-4 text-lg text-muted">Kami sedang dalam tahap pengembangan aktif. Daftar sekarang untuk mendapat akses penuh tanpa biaya apa pun - tanpa kartu kredit, tanpa batasan.</p>
 
     <div class="mt-10 rounded-2xl bg-white border border-line shadow-card p-8 text-left">
       <div class="text-xs font-bold text-primary uppercase">Yang Kamu Dapat</div>

@@ -1,16 +1,19 @@
 @extends('layouts.admin')
 @section('title','Health Check')
 @section('content')
-<div class="bg-white rounded-2xl border border-line overflow-hidden max-w-2xl">
+<div class="bg-white rounded-2xl border border-line p-6">
+  <h2 class="text-lg font-bold mb-4">System Health</h2>
   <table class="w-full text-sm">
+    <thead class="text-xs text-muted"><tr><th class="text-left p-2">Check</th><th class="text-left p-2">Status</th><th class="text-left p-2">Detail</th></tr></thead>
     <tbody class="divide-y divide-line">
-      @foreach ($checks as $label => [$value, $ok])
-        <tr>
-          <td class="p-3 font-medium">{{ $label }}</td>
-          <td class="p-3 text-muted">{{ $value }}</td>
-          <td class="p-3 text-right">@if ($ok)<span class="text-green-600 font-bold">OK</span>@else<span class="text-red-600 font-bold">!</span>@endif</td>
-        </tr>
-      @endforeach
+    @foreach ($checks as $name => $check)
+      @php [$value, $ok] = $check; @endphp
+      <tr>
+        <td class="p-2 font-semibold">{{ $name }}</td>
+        <td class="p-2"><span class="px-2 py-0.5 rounded-full text-xs {{ $ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700' }}">{{ $ok ? 'OK' : 'WARN' }}</span></td>
+        <td class="p-2 text-xs text-muted">{{ $value }}</td>
+      </tr>
+    @endforeach
     </tbody>
   </table>
 </div>

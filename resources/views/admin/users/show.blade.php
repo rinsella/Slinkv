@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 @section('title', 'User: '.$user->name)
 @section('content')
-<a href="{{ route('admin.users') }}" class="text-sm text-primary">← Daftar user</a>
+<a href="{{ route('admin.users.index') }}" class="text-sm text-primary">← Daftar user</a>
 <div class="grid lg:grid-cols-3 gap-5 mt-3">
   <div class="lg:col-span-2 bg-white rounded-2xl border border-line p-6">
     <h2 class="text-xl font-bold">{{ $user->name }}</h2>
@@ -12,14 +12,14 @@
       <div><dt class="text-muted text-xs">Plan</dt><dd class="font-semibold">{{ $user->plan?->name ?? 'Free' }}</dd></div>
       <div><dt class="text-muted text-xs">Jumlah Link</dt><dd class="font-semibold">{{ $user->short_links_count }}</dd></div>
       <div><dt class="text-muted text-xs">Bergabung</dt><dd>{{ $user->created_at?->format('d M Y') }}</dd></div>
-      <div><dt class="text-muted text-xs">Last Login</dt><dd>{{ $user->last_login_at?->format('d M Y H:i') ?? '—' }}</dd></div>
+      <div><dt class="text-muted text-xs">Last Login</dt><dd>{{ $user->last_login_at?->format('d M Y H:i') ?? '-' }}</dd></div>
     </dl>
   </div>
   <div class="space-y-3">
     <form method="POST" action="{{ route('admin.users.suspend', $user) }}" class="bg-white rounded-2xl border border-line p-5">@csrf @method('PATCH')
       <button class="w-full px-4 py-2 rounded-xl {{ $user->status==='active' ? 'bg-red-600 text-white' : 'bg-green-600 text-white' }} text-sm font-semibold">{{ $user->status==='active' ? 'Suspend User' : 'Aktifkan User' }}</button>
     </form>
-    <form method="POST" action="{{ route('admin.users.plan', $user) }}" class="bg-white rounded-2xl border border-line p-5 space-y-3">@csrf @method('PATCH')
+    <form method="POST" action="{{ route('admin.users.change-plan', $user) }}" class="bg-white rounded-2xl border border-line p-5 space-y-3">@csrf @method('PATCH')
       <label class="block text-sm font-medium">Ubah Paket</label>
       <select name="plan_id" class="w-full rounded-xl border-line text-sm">
         @foreach (\App\Models\Plan::orderBy('sort_order')->get() as $p)

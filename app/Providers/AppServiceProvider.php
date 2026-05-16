@@ -2,23 +2,26 @@
 
 namespace App\Providers;
 
+use App\Services\BetaModeService;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        $this->app->singleton(BetaModeService::class);
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        //
+        if (request()->header('x-forwarded-proto') === 'https' || str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
+
+        View::composer('*', function ($view) {
+            $view->with('beta', app(BetaModeService::class));
+        });
     }
 }

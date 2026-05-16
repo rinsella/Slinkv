@@ -42,8 +42,8 @@
     <div class="space-y-3 text-sm">
       <div class="flex justify-between"><span class="text-muted">Human</span><span class="font-semibold text-primary">{{ number_format($humanClicks) }}</span></div>
       <div class="flex justify-between"><span class="text-muted">Bot</span><span class="font-semibold text-red-600">{{ number_format($botClicks) }}</span></div>
-      <div class="flex justify-between"><span class="text-muted">Top Source</span><span class="font-semibold">{{ $topSource ?: '—' }}</span></div>
-      <div class="flex justify-between"><span class="text-muted">Top Negara</span><span class="font-semibold">{{ $topCountry ?: '—' }}</span></div>
+      <div class="flex justify-between"><span class="text-muted">Top Source</span><span class="font-semibold">{{ $topSource ?: '-' }}</span></div>
+      <div class="flex justify-between"><span class="text-muted">Top Negara</span><span class="font-semibold">{{ $topCountry ?: '-' }}</span></div>
     </div>
   </div>
 </div>

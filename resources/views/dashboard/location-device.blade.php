@@ -26,7 +26,7 @@
     <div class="p-4 border-b border-line"><h3 class="font-semibold">{{ $t }}</h3></div>
     @if ($rows->isEmpty())<div class="p-6 text-center text-muted text-sm">Belum ada.</div>
     @else<ul class="divide-y divide-line text-sm">
-      @foreach ($rows as $r)<li class="p-3 flex justify-between"><span>{{ $r->$key ?: '—' }}</span><span class="font-semibold">{{ $r->c }}</span></li>@endforeach
+      @foreach ($rows as $r)<li class="p-3 flex justify-between"><span>{{ $r->$key ?: '-' }}</span><span class="font-semibold">{{ $r->c }}</span></li>@endforeach
     </ul>@endif
   </div>
   @endforeach

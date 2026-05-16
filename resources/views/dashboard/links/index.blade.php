@@ -3,7 +3,7 @@
 <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
   <div>
     <h1 class="text-2xl font-bold">Link Saya</h1>
-    <p class="text-muted text-sm">{{ $activeCount }}{{ $plan->max_links ? ' / '.$plan->max_links : '' }} link aktif — paket {{ $plan->name }}.</p>
+    <p class="text-muted text-sm">{{ $activeCount }}{{ $plan->max_links ? ' / '.$plan->max_links : '' }} link aktif - paket {{ $plan->name }}.</p>
   </div>
   <a href="{{ route('dashboard.links.create') }}" class="px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-700">+ Buat Shortlink</a>
 </div>
@@ -49,8 +49,11 @@
           @foreach ($links as $l)
           <tr>
             <td class="p-3">
-              <div class="font-mono text-primary">{{ url('/'.$l->slug) }}</div>
-              <div class="text-xs text-muted">{{ $l->title ?: '—' }}</div>
+              <div class="flex items-center gap-2">
+                <a href="{{ url('/'.$l->slug) }}" target="_blank" rel="noopener" class="font-mono text-primary hover:underline">{{ url('/'.$l->slug) }}</a>
+                <button type="button" data-copy="{{ url('/'.$l->slug) }}" class="js-copy text-xs px-2 py-0.5 rounded-md border border-line text-muted hover:bg-surface" title="Salin link">Copy</button>
+              </div>
+              <div class="text-xs text-muted">{{ $l->title ?: '-' }}</div>
             </td>
             <td class="p-3 max-w-xs truncate text-muted">{{ $l->destination_url }}</td>
             <td class="p-3 text-right">{{ number_format($l->total_clicks) }}</td>
@@ -64,11 +67,11 @@
             <td class="p-3 text-right space-x-2 whitespace-nowrap">
               <a href="{{ route('dashboard.links.analytics', $l) }}" class="text-primary text-xs font-semibold">Analytics</a>
               <a href="{{ route('dashboard.links.edit', $l) }}" class="text-ink text-xs font-semibold">Edit</a>
-              <form method="POST" action="{{ route('dashboard.links.toggle', $l) }}" class="inline">@csrf
-                <button class="text-amber-600 text-xs font-semibold">{{ $l->is_active ? 'Off' : 'On' }}</button>
+              <form method="POST" action="{{ route('dashboard.links.toggle', $l) }}" class="inline">@csrf @method('PATCH')
+                <button type="submit" class="text-amber-600 text-xs font-semibold">{{ $l->is_active ? 'Off' : 'On' }}</button>
               </form>
               <form method="POST" action="{{ route('dashboard.links.destroy', $l) }}" class="inline" onsubmit="return confirm('Hapus link ini?')">@csrf @method('DELETE')
-                <button class="text-red-600 text-xs font-semibold">Hapus</button>
+                <button type="submit" class="text-red-600 text-xs font-semibold">Hapus</button>
               </form>
             </td>
           </tr>
@@ -79,15 +82,24 @@
     <div class="md:hidden divide-y divide-line">
       @foreach ($links as $l)
       <div class="p-4">
-        <div class="font-mono text-primary text-sm break-all">{{ url('/'.$l->slug) }}</div>
+        <div class="flex items-start justify-between gap-2">
+          <a href="{{ url('/'.$l->slug) }}" target="_blank" rel="noopener" class="font-mono text-primary text-sm break-all hover:underline">{{ url('/'.$l->slug) }}</a>
+          <button type="button" data-copy="{{ url('/'.$l->slug) }}" class="js-copy shrink-0 text-xs px-2 py-1 rounded-md border border-line text-muted">Copy</button>
+        </div>
         <div class="text-xs text-muted break-all mt-1">{{ $l->destination_url }}</div>
         <div class="flex gap-3 mt-2 text-xs text-muted">
           <span>Klik: <b class="text-ink">{{ $l->total_clicks }}</b></span>
           <span>Bot: <b class="text-red-600">{{ $l->bot_clicks }}</b></span>
         </div>
-        <div class="mt-3 flex gap-2">
+        <div class="mt-3 flex flex-wrap gap-2">
           <a href="{{ route('dashboard.links.analytics', $l) }}" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs">Analytics</a>
           <a href="{{ route('dashboard.links.edit', $l) }}" class="px-3 py-1.5 rounded-lg border border-line text-xs">Edit</a>
+          <form method="POST" action="{{ route('dashboard.links.toggle', $l) }}" class="inline">@csrf @method('PATCH')
+            <button type="submit" class="px-3 py-1.5 rounded-lg border border-line text-xs text-amber-600">{{ $l->is_active ? 'Off' : 'On' }}</button>
+          </form>
+          <form method="POST" action="{{ route('dashboard.links.destroy', $l) }}" class="inline" onsubmit="return confirm('Hapus link ini?')">@csrf @method('DELETE')
+            <button type="submit" class="px-3 py-1.5 rounded-lg border border-line text-xs text-red-600">Hapus</button>
+          </form>
         </div>
       </div>
       @endforeach
@@ -95,4 +107,30 @@
     <div class="p-4 border-t border-line">{{ $links->links() }}</div>
   @endif
 </div>
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.js-copy');
+    if (!btn) return;
+    e.preventDefault();
+    var text = btn.getAttribute('data-copy') || '';
+    var done = function(){
+      var old = btn.textContent;
+      btn.textContent = 'Tersalin!';
+      btn.classList.add('text-green-600');
+      setTimeout(function(){ btn.textContent = old; btn.classList.remove('text-green-600'); }, 1500);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done).catch(fallback);
+    } else { fallback(); }
+    function fallback(){
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch(_) {}
+      document.body.removeChild(ta);
+    }
+  });
+})();
+</script>
 @endsection

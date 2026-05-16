@@ -11,9 +11,16 @@ $ROOT = dirname(__DIR__);
 $LOCK = $ROOT . '/storage/installed.lock';
 $ENV  = $ROOT . '/.env';
 
-if (file_exists($LOCK) && (!isset($_GET['force']) || $_GET['force'] !== '1')) {
+if (file_exists($LOCK)) {
     http_response_code(403);
-    echo render('Sudah Terpasang', '<div class="card"><h2>Aplikasi sudah terpasang</h2><p>Hapus <code>storage/installed.lock</code> untuk menjalankan ulang installer.</p><a class="btn" href="/">Buka Aplikasi</a></div>');
+    echo render('Sudah Terpasang', '<div class="card"><h2>Aplikasi sudah terpasang</h2><p>Untuk keamanan, installer dinonaktifkan setelah instalasi selesai. Hapus file <code>public/install.php</code> dari server Anda.</p><a class="btn" href="/">Buka Aplikasi</a></div>');
+    exit;
+}
+
+// Refuse to run if Laravel vendor is not installed.
+if (!file_exists($ROOT . '/vendor/autoload.php')) {
+    http_response_code(500);
+    echo render('Dependency Belum Terinstall', '<div class="card"><h2>vendor/ belum ada</h2><p>Jalankan <code>composer install --no-dev --optimize-autoloader</code> di server terlebih dahulu, lalu refresh halaman ini.</p></div>');
     exit;
 }
 

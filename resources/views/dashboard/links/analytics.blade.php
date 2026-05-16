@@ -46,7 +46,7 @@
       <div class="text-sm text-muted py-6 text-center">Belum ada data.</div>
     @else
       <ul class="divide-y divide-line text-sm">
-        @foreach ($rows as $r)<li class="py-2 flex justify-between"><span>{{ $r->$key ?: '—' }}</span><span class="font-semibold">{{ $r->c }}</span></li>@endforeach
+        @foreach ($rows as $r)<li class="py-2 flex justify-between"><span>{{ $r->$key ?: '-' }}</span><span class="font-semibold">{{ $r->c }}</span></li>@endforeach
       </ul>
     @endif
   </div>
@@ -67,9 +67,9 @@
         @foreach ($recent as $c)
           <tr>
             <td class="p-3">{{ $c->clicked_at?->format('d/m H:i:s') }}</td>
-            <td class="p-3">{{ $c->country_name ?: '—' }}</td>
-            <td class="p-3">{{ $c->source_platform ?: '—' }}</td>
-            <td class="p-3">{{ $c->device_type ?: '—' }}</td>
+            <td class="p-3">{{ $c->country_name ?: '-' }}</td>
+            <td class="p-3">{{ $c->source_platform ?: '-' }}</td>
+            <td class="p-3">{{ $c->device_type ?: '-' }}</td>
             <td class="p-3">@if ($c->is_bot)<span class="px-2 py-0.5 rounded-full text-[10px] bg-red-100 text-red-700 font-bold">BOT</span>@else<span class="px-2 py-0.5 rounded-full text-[10px] bg-green-100 text-green-700 font-bold">HUMAN</span>@endif</td>
           </tr>
         @endforeach

@@ -21,3 +21,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Installer lock — created by installer at runtime
+storage/installed.lock

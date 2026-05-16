@@ -31,4 +31,9 @@ class Plan extends Model
 
         return 'Rp' . number_format((int) $this->price, 0, ',', '.');
     }
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
 }

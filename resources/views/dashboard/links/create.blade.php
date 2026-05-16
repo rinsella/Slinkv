@@ -3,7 +3,7 @@
 <div class="max-w-3xl">
   <a href="{{ route('dashboard.links.index') }}" class="text-sm text-primary">← Kembali ke daftar</a>
   <h1 class="mt-2 text-2xl font-bold">Buat Shortlink Baru</h1>
-  <p class="text-sm text-muted">Paket {{ $plan->name }}{{ $plan->max_links ? ' — maks '.$plan->max_links.' link' : '' }}.</p>
+  <p class="text-sm text-muted">Paket {{ $plan->name }}{{ $plan->max_links ? ' - maks '.$plan->max_links.' link' : '' }}.</p>
 
   <form method="POST" action="{{ route('dashboard.links.store') }}" class="mt-6 space-y-5 bg-white rounded-2xl shadow-card border border-line p-6">
     @csrf

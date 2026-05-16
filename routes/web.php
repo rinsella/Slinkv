@@ -1,6 +1,23 @@
 <?php
 
-use App\Http\Controllers\AdminController;
+use App\Http\Controllers\Admin\AdminAbuseReportController;
+use App\Http\Controllers\Admin\AdminArticleController;
+use App\Http\Controllers\Admin\AdminAuditLogController;
+use App\Http\Controllers\Admin\AdminBlockedDomainController;
+use App\Http\Controllers\Admin\AdminBlockedIpController;
+use App\Http\Controllers\Admin\AdminBotLogController;
+use App\Http\Controllers\Admin\AdminBotRuleController;
+use App\Http\Controllers\Admin\AdminClickLogController;
+use App\Http\Controllers\Admin\AdminContactMessageController;
+use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminFaqController;
+use App\Http\Controllers\Admin\AdminHealthController;
+use App\Http\Controllers\Admin\AdminLinkController;
+use App\Http\Controllers\Admin\AdminPaymentController;
+use App\Http\Controllers\Admin\AdminPlanController;
+use App\Http\Controllers\Admin\AdminSettingController;
+use App\Http\Controllers\Admin\AdminSubscriptionController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -67,27 +84,72 @@ Route::middleware(['auth'])->prefix('dashboard')->name('dashboard.')->group(func
 });
 
 // =================== Admin ===================
-Route::middleware(['auth','admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
-    Route::get('/users', [AdminController::class, 'users'])->name('users');
-    Route::get('/users/{user}', [AdminController::class, 'userShow'])->name('users.show');
-    Route::patch('/users/{user}/suspend', [AdminController::class, 'userSuspend'])->name('users.suspend');
-    Route::patch('/users/{user}/plan', [AdminController::class, 'userPlan'])->name('users.plan');
-    Route::get('/links', [AdminController::class, 'links'])->name('links');
-    Route::patch('/links/{link}/toggle', [AdminController::class, 'linkToggle'])->name('links.toggle');
-    Route::delete('/links/{link}', [AdminController::class, 'linkDestroy'])->name('links.destroy');
-    Route::get('/click-logs', [AdminController::class, 'clickLogs'])->name('click-logs');
-    Route::get('/bot-logs', [AdminController::class, 'botLogs'])->name('bot-logs');
-    Route::get('/plans', [AdminController::class, 'plans'])->name('plans');
-    Route::get('/subscriptions', [AdminController::class, 'subscriptions'])->name('subscriptions');
-    Route::get('/payments', [AdminController::class, 'payments'])->name('payments');
-    Route::patch('/payments/{payment}/mark-paid', [AdminController::class, 'paymentMarkPaid'])->name('payments.mark-paid');
-    Route::get('/articles', [AdminController::class, 'articles'])->name('articles');
-    Route::get('/faqs', [AdminController::class, 'faqs'])->name('faqs');
-    Route::get('/contact-messages', [AdminController::class, 'contactMessages'])->name('contact-messages');
-    Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
-    Route::post('/settings', [AdminController::class, 'settingsUpdate'])->name('settings.update');
-    Route::get('/health-check', [AdminController::class, 'healthCheck'])->name('health-check');
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', AdminDashboardController::class)->name('dashboard');
+
+    Route::resource('users', AdminUserController::class)->except(['create', 'store']);
+    Route::patch('users/{user}/suspend', [AdminUserController::class, 'suspend'])->name('users.suspend');
+    Route::patch('users/{user}/activate', [AdminUserController::class, 'activate'])->name('users.activate');
+    Route::patch('users/{user}/change-plan', [AdminUserController::class, 'changePlan'])->name('users.change-plan');
+
+    Route::resource('links', AdminLinkController::class)->except(['create', 'store']);
+    Route::patch('links/{link}/toggle', [AdminLinkController::class, 'toggle'])->name('links.toggle');
+    Route::patch('links/{link}/flag', [AdminLinkController::class, 'flag'])->name('links.flag');
+    Route::patch('links/{link}/unflag', [AdminLinkController::class, 'unflag'])->name('links.unflag');
+
+    Route::get('click-logs', [AdminClickLogController::class, 'index'])->name('click-logs');
+    Route::get('bot-logs', [AdminBotLogController::class, 'index'])->name('bot-logs');
+
+    Route::resource('plans', AdminPlanController::class)->except(['show']);
+    Route::patch('plans/{plan}/toggle', [AdminPlanController::class, 'toggle'])->name('plans.toggle');
+
+    Route::resource('articles', AdminArticleController::class)->except(['show']);
+    Route::patch('articles/{article}/publish', [AdminArticleController::class, 'publish'])->name('articles.publish');
+    Route::patch('articles/{article}/draft', [AdminArticleController::class, 'draft'])->name('articles.draft');
+
+    Route::resource('faqs', AdminFaqController::class)->except(['show']);
+    Route::patch('faqs/{faq}/toggle', [AdminFaqController::class, 'toggle'])->name('faqs.toggle');
+
+    Route::resource('subscriptions', AdminSubscriptionController::class)->except(['create', 'store', 'destroy']);
+    Route::patch('subscriptions/{subscription}/activate', [AdminSubscriptionController::class, 'activate'])->name('subscriptions.activate');
+    Route::patch('subscriptions/{subscription}/cancel', [AdminSubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
+    Route::patch('subscriptions/{subscription}/extend', [AdminSubscriptionController::class, 'extend'])->name('subscriptions.extend');
+
+    Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
+    Route::get('payments/{payment}', [AdminPaymentController::class, 'show'])->name('payments.show');
+    Route::patch('payments/{payment}/mark-paid', [AdminPaymentController::class, 'markPaid'])->name('payments.mark-paid');
+    Route::patch('payments/{payment}/mark-failed', [AdminPaymentController::class, 'markFailed'])->name('payments.mark-failed');
+    Route::patch('payments/{payment}/mark-expired', [AdminPaymentController::class, 'markExpired'])->name('payments.mark-expired');
+    Route::patch('payments/{payment}/refund', [AdminPaymentController::class, 'refund'])->name('payments.refund');
+
+    Route::get('contact-messages', [AdminContactMessageController::class, 'index'])->name('contact-messages.index');
+    Route::get('contact-messages/{message}', [AdminContactMessageController::class, 'show'])->name('contact-messages.show');
+    Route::patch('contact-messages/{message}/read', [AdminContactMessageController::class, 'markRead'])->name('contact-messages.read');
+    Route::patch('contact-messages/{message}/replied', [AdminContactMessageController::class, 'markReplied'])->name('contact-messages.replied');
+    Route::delete('contact-messages/{message}', [AdminContactMessageController::class, 'destroy'])->name('contact-messages.destroy');
+
+    Route::resource('blocked-domains', AdminBlockedDomainController::class)->except(['show']);
+    Route::patch('blocked-domains/{blocked_domain}/toggle', [AdminBlockedDomainController::class, 'toggle'])->name('blocked-domains.toggle');
+
+    Route::resource('blocked-ips', AdminBlockedIpController::class)->except(['show']);
+    Route::patch('blocked-ips/{blocked_ip}/toggle', [AdminBlockedIpController::class, 'toggle'])->name('blocked-ips.toggle');
+
+    Route::resource('bot-rules', AdminBotRuleController::class)->except(['show']);
+    Route::patch('bot-rules/{bot_rule}/toggle', [AdminBotRuleController::class, 'toggle'])->name('bot-rules.toggle');
+
+    Route::get('abuse-reports', [AdminAbuseReportController::class, 'index'])->name('abuse-reports.index');
+    Route::get('abuse-reports/{abuse_report}', [AdminAbuseReportController::class, 'show'])->name('abuse-reports.show');
+    Route::patch('abuse-reports/{abuse_report}/review', [AdminAbuseReportController::class, 'review'])->name('abuse-reports.review');
+    Route::patch('abuse-reports/{abuse_report}/close', [AdminAbuseReportController::class, 'close'])->name('abuse-reports.close');
+    Route::patch('abuse-reports/{abuse_report}/disable-link', [AdminAbuseReportController::class, 'disableLink'])->name('abuse-reports.disable-link');
+    Route::delete('abuse-reports/{abuse_report}', [AdminAbuseReportController::class, 'destroy'])->name('abuse-reports.destroy');
+
+    Route::get('audit-logs', [AdminAuditLogController::class, 'index'])->name('audit-logs');
+
+    Route::get('settings', [AdminSettingController::class, 'index'])->name('settings');
+    Route::match(['post', 'put', 'patch'], 'settings', [AdminSettingController::class, 'update'])->name('settings.update');
+
+    Route::get('health-check', AdminHealthController::class)->name('health-check');
 });
 
 // =================== Catch-all redirect (MUST BE LAST) ===================

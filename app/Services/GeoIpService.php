@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class GeoIpService
 {
@@ -12,19 +14,42 @@ class GeoIpService
      */
     public function lookup(?string $ip): array
     {
-        $default = ['country_code' => null, 'country_name' => 'Unknown', 'city' => null];
+        $unknown = ['country_code' => null, 'country_name' => 'Unknown', 'city' => null];
 
-        if (!$ip || $this->isPrivate($ip)) {
+        if (!$ip) {
+            return $unknown;
+        }
+
+        if ($this->isPrivate($ip)) {
             return ['country_code' => 'LO', 'country_name' => 'Local', 'city' => null];
         }
 
-        return Cache::remember("geoip:{$ip}", 86400, function () use ($ip, $default) {
+        return Cache::remember("geoip:{$ip}", 86400, function () use ($ip, $unknown) {
             try {
-                // Try CF header style header-only (skipped here). Try free ip-api as last resort only if outbound allowed.
-                // For safety we DO NOT make outbound HTTP from the redirect path by default.
-                return $default;
+                // ip-api.com free endpoint: 45 req/min, no API key.
+                // fields bitmask: status(16384)+country(1)+countryCode(2)+city(256) = 16643
+                $res = Http::timeout(2)
+                    ->connectTimeout(1)
+                    ->acceptJson()
+                    ->get("http://ip-api.com/json/{$ip}", ['fields' => 16643]);
+
+                if (!$res->ok()) {
+                    return $unknown;
+                }
+
+                $data = $res->json();
+                if (!is_array($data) || ($data['status'] ?? null) !== 'success') {
+                    return $unknown;
+                }
+
+                return [
+                    'country_code' => $data['countryCode'] ?? null,
+                    'country_name' => $data['country'] ?? 'Unknown',
+                    'city' => $data['city'] ?? null,
+                ];
             } catch (\Throwable $e) {
-                return $default;
+                Log::debug('GeoIP lookup failed', ['ip' => $ip, 'err' => $e->getMessage()]);
+                return $unknown;
             }
         });
     }

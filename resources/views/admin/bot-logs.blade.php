@@ -1,25 +1,26 @@
 @extends('layouts.admin')
 @section('title','Bot Logs')
 @section('content')
-<div class="bg-white rounded-2xl border border-line overflow-hidden">
-  @if ($logs->isEmpty())<div class="p-10 text-center text-muted">Belum ada bot terdeteksi.</div>
-  @else
-  <table class="w-full text-sm">
-    <thead class="bg-surface text-muted text-xs"><tr><th class="text-left p-3">Waktu</th><th class="text-left p-3">Link</th><th class="text-left p-3">IP Hash</th><th class="text-left p-3">UA</th><th class="text-left p-3">Classification</th><th class="text-right p-3">Score</th></tr></thead>
-    <tbody class="divide-y divide-line">
-    @foreach ($logs as $l)
-      <tr>
-        <td class="p-3 text-xs">{{ $l->clicked_at?->format('d/m H:i:s') }}</td>
-        <td class="p-3 font-mono text-primary text-xs">{{ $l->shortLink?->slug }}</td>
-        <td class="p-3 font-mono text-xs text-muted">{{ substr($l->ip_hash ?: '', 0, 10) }}…</td>
-        <td class="p-3 text-xs truncate max-w-xs">{{ $l->user_agent }}</td>
-        <td class="p-3 text-xs">{{ $l->classification }}</td>
-        <td class="p-3 text-right text-xs font-semibold text-red-600">{{ $l->bot_score }}</td>
-      </tr>
-    @endforeach
-    </tbody>
-  </table>
-  <div class="p-4 border-t border-line">{{ $logs->links() }}</div>
-  @endif
+<p class="text-sm text-muted mb-4">Klik dengan skor bot tinggi atau terdeteksi sebagai bot.</p>
+<div class="bg-white rounded-2xl border border-line overflow-x-auto">
+@if ($logs->isEmpty())<div class="p-12 text-center text-muted">Tidak ada aktivitas bot terdeteksi.</div>
+@else
+<table class="w-full text-sm">
+  <thead class="bg-surface text-xs text-muted"><tr><th class="text-left p-3">Waktu</th><th class="text-left p-3">Link</th><th class="text-center p-3">Skor</th><th class="text-left p-3">Alasan</th><th class="text-left p-3">UA</th><th class="text-left p-3">Country</th></tr></thead>
+  <tbody class="divide-y divide-line">
+  @foreach ($logs as $log)
+    <tr>
+      <td class="p-3 text-xs">{{ $log->created_at?->format('d/m H:i:s') }}</td>
+      <td class="p-3 font-mono text-xs">{{ $log->shortLink?->short_code ?? '-' }}</td>
+      <td class="p-3 text-center"><span class="font-bold {{ $log->bot_score >= 70 ? 'text-red-600' : 'text-amber-600' }}">{{ $log->bot_score ?? 0 }}</span></td>
+      <td class="p-3 text-xs">{{ $log->bot_reason ?: ($log->is_bot ? 'detected' : '-') }}</td>
+      <td class="p-3 text-xs text-muted">{{ \Illuminate\Support\Str::limit($log->user_agent, 50) }}</td>
+      <td class="p-3 text-xs">{{ $log->country_code ?: '-' }}</td>
+    </tr>
+  @endforeach
+  </tbody>
+</table>
+@endif
 </div>
+<div class="mt-4">{{ $logs->withQueryString()->links() }}</div>
 @endsection

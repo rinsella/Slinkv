@@ -2,17 +2,37 @@
 @php
   $user = auth()->user();
   $supportWa = \App\Models\Setting::get('support_whatsapp', '6281234567890');
-  $items = [
-    ['Dashboard', 'admin.dashboard'],
-    ['Users', 'admin.users'],
-    ['Short Links', 'admin.links'],
-    ['Click Logs', 'admin.click-logs'],
-    ['Bot Logs', 'admin.bot-logs'],
-    ['Articles', 'admin.articles'],
-    ['FAQs', 'admin.faqs'],
-    ['Contact Messages', 'admin.contact-messages'],
-    ['Settings', 'admin.settings'],
-    ['Health Check', 'admin.health-check'],
+  $flaggedCount = \App\Models\ShortLink::where('is_flagged', true)->count();
+  $pendingPaymentsCount = \App\Models\Payment::where('status', 'pending')->count();
+  $unreadMessagesCount = \App\Models\ContactMessage::where('status', 'unread')->count();
+  $openAbuseCount = \App\Models\AbuseReport::where('status', 'open')->count();
+  $sections = [
+    'OVERVIEW' => [
+      ['Dashboard', 'admin.dashboard', null],
+    ],
+    'MANAGEMENT' => [
+      ['Users', 'admin.users.index', null],
+      ['Short Links', 'admin.links.index', $flaggedCount ?: null],
+      ['Click Logs', 'admin.click-logs', null],
+      ['Bot Logs', 'admin.bot-logs', null],
+      ['Plans', 'admin.plans.index', null],
+      ['Subscriptions', 'admin.subscriptions.index', null],
+      ['Payments', 'admin.payments.index', $pendingPaymentsCount ?: null],
+      ['Articles', 'admin.articles.index', null],
+      ['FAQs', 'admin.faqs.index', null],
+      ['Contact Messages', 'admin.contact-messages.index', $unreadMessagesCount ?: null],
+    ],
+    'SECURITY' => [
+      ['Abuse Reports', 'admin.abuse-reports.index', $openAbuseCount ?: null],
+      ['Blocked Domains', 'admin.blocked-domains.index', null],
+      ['Blocked IPs', 'admin.blocked-ips.index', null],
+      ['Bot Rules', 'admin.bot-rules.index', null],
+      ['Audit Logs', 'admin.audit-logs', null],
+    ],
+    'SYSTEM' => [
+      ['Settings', 'admin.settings', null],
+      ['Health Check', 'admin.health-check', null],
+    ],
   ];
 @endphp
 @section('body')
@@ -25,10 +45,21 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
-    <nav class="flex-1 overflow-y-auto px-2 py-4 text-sm">
-      @foreach ($items as [$name, $route])
-        @php $active = request()->routeIs($route) || request()->routeIs($route.'.*'); @endphp
-        <a href="{{ route($route) }}" class="block px-3 py-2.5 rounded-lg mb-0.5 {{ $active ? 'bg-primary text-white font-semibold' : 'text-white/80 hover:bg-white/10' }}">{{ $name }}</a>
+    <nav class="flex-1 overflow-y-auto px-2 py-3 text-sm">
+      @foreach ($sections as $sectionTitle => $items)
+        <div class="px-3 pt-3 pb-1 text-[10px] tracking-wider text-white/40 font-semibold">{{ $sectionTitle }}</div>
+        @foreach ($items as [$name, $route, $badge])
+          @php
+            $exists = \Illuminate\Support\Facades\Route::has($route);
+            $active = $exists && (request()->routeIs($route) || request()->routeIs(str_replace('.index', '', $route).'.*'));
+          @endphp
+          @if ($exists)
+            <a href="{{ route($route) }}" class="flex items-center justify-between px-3 py-2 rounded-lg mb-0.5 {{ $active ? 'bg-primary text-white font-semibold' : 'text-white/80 hover:bg-white/10' }}">
+              <span>{{ $name }}</span>
+              @if ($badge)<span class="bg-red-500 text-white text-[10px] px-1.5 rounded-full">{{ $badge }}</span>@endif
+            </a>
+          @endif
+        @endforeach
       @endforeach
     </nav>
     <div class="p-4 border-t border-white/10 text-xs">
