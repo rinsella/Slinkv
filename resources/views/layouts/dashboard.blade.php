@@ -7,16 +7,16 @@
 @endphp
 
 @section('body')
-<div x-data="{ sidebar: false }" class="min-h-full">
-  <!-- Mobile overlay -->
-  <div x-show="sidebar" x-transition.opacity class="fixed inset-0 bg-black/40 z-40 lg:hidden" x-on:click="sidebar=false" style="display:none"></div>
+<div x-data="{ sidebar: false }" class="min-h-full" data-sidebar-root>
+  <!-- Mobile overlay (works with both Alpine and vanilla fallback) -->
+  <div x-show="sidebar" x-transition.opacity x-on:click="sidebar=false" data-sidebar-overlay class="slv-sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden" style="display:none"></div>
 
   <!-- Sidebar -->
-  <aside class="fixed inset-y-0 left-0 z-50 w-[240px] bg-white border-r border-line flex flex-col transform lg:transform-none transition-transform"
+  <aside data-sidebar class="slv-sidebar fixed inset-y-0 left-0 z-50 w-[240px] bg-white border-r border-line flex flex-col transform lg:transform-none transition-transform -translate-x-full lg:translate-x-0"
          :class="sidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
     <div class="px-5 h-16 flex items-center justify-between border-b border-line">
       <a href="{{ route('dashboard.index') }}" class="text-2xl"><span class="brand-slink">slink</span><span class="brand-v">v</span></a>
-      <button class="lg:hidden p-2" x-on:click="sidebar=false" aria-label="Tutup">
+      <button type="button" class="lg:hidden p-2" data-sidebar-close x-on:click="sidebar=false" aria-label="Tutup">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
@@ -73,7 +73,7 @@
   <!-- Main -->
   <div class="lg:pl-[240px]">
     <header class="sticky top-0 z-30 h-16 bg-white border-b border-line flex items-center px-4 sm:px-6 gap-3">
-      <button class="lg:hidden p-2 -ml-2" x-on:click="sidebar=true" aria-label="Menu">
+      <button type="button" class="lg:hidden p-2 -ml-2" data-sidebar-open x-on:click="sidebar=true" aria-label="Menu">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <form method="GET" action="{{ route('dashboard.links.index') }}" class="hidden sm:flex flex-1 max-w-md">

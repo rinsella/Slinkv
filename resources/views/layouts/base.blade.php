@@ -36,6 +36,40 @@ window.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+{{-- Bulletproof vanilla-JS sidebar toggle.
+     Works whether Alpine loads or not. Uses event delegation + data-* hooks
+     so it can't break from inline-handler errors. CSS below ensures sidebar
+     stays hidden on mobile until body.sidebar-open is set. --}}
+<style>
+@media (max-width: 1023.98px) {
+  body:not(.sidebar-open) .slv-sidebar { transform: translateX(-100%) !important; }
+  body:not(.sidebar-open) .slv-sidebar-overlay { display: none !important; }
+  body.sidebar-open .slv-sidebar { transform: translateX(0) !important; }
+  body.sidebar-open .slv-sidebar-overlay { display: block !important; }
+  body.sidebar-open { overflow: hidden; }
+}
+</style>
+<script>
+(function () {
+  function ready(fn) {
+    if (document.readyState !== 'loading') { fn(); }
+    else { document.addEventListener('DOMContentLoaded', fn); }
+  }
+  ready(function () {
+    document.addEventListener('click', function (e) {
+      var open  = e.target.closest('[data-sidebar-open]');
+      var close = e.target.closest('[data-sidebar-close]');
+      var over  = e.target.closest('[data-sidebar-overlay]');
+      if (open)  { document.body.classList.add('sidebar-open');    e.preventDefault(); }
+      if (close || over) { document.body.classList.remove('sidebar-open'); e.preventDefault(); }
+    }, false);
+    // ESC closes sidebar
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { document.body.classList.remove('sidebar-open'); }
+    });
+  });
+})();
+</script>
 @stack('head')
 </head>
 <body class="h-full bg-surface text-ink antialiased">

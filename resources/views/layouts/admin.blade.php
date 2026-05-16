@@ -36,12 +36,12 @@
   ];
 @endphp
 @section('body')
-<div x-data="{ sidebar:false }" class="min-h-full">
-  <div x-show="sidebar" x-transition.opacity class="fixed inset-0 bg-black/40 z-40 lg:hidden" x-on:click="sidebar=false" style="display:none"></div>
-  <aside class="fixed inset-y-0 left-0 z-50 w-[240px] bg-ink text-white flex flex-col transform lg:transform-none transition-transform" :class="sidebar?'translate-x-0':'-translate-x-full lg:translate-x-0'">
+<div x-data="{ sidebar:false }" class="min-h-full" data-sidebar-root>
+  <div x-show="sidebar" x-transition.opacity data-sidebar-overlay class="slv-sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden" x-on:click="sidebar=false" style="display:none"></div>
+  <aside data-sidebar class="slv-sidebar fixed inset-y-0 left-0 z-50 w-[240px] bg-ink text-white flex flex-col transform lg:transform-none transition-transform -translate-x-full lg:translate-x-0" :class="sidebar?'translate-x-0':'-translate-x-full lg:translate-x-0'">
     <div class="px-5 h-16 flex items-center justify-between border-b border-white/10">
       <a href="{{ route('admin.dashboard') }}" class="text-xl font-bold">slinkv <span class="text-xs text-primary">admin</span></a>
-      <button class="lg:hidden p-2" x-on:click="sidebar=false" aria-label="Tutup">
+      <button type="button" class="lg:hidden p-2" data-sidebar-close x-on:click="sidebar=false" aria-label="Tutup">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
@@ -72,7 +72,7 @@
   </aside>
   <div class="lg:pl-[240px]">
     <header class="sticky top-0 z-30 h-16 bg-white border-b border-line flex items-center px-4 sm:px-6 gap-3">
-      <button class="lg:hidden p-2 -ml-2" x-on:click="sidebar=true">
+      <button type="button" class="lg:hidden p-2 -ml-2" data-sidebar-open x-on:click="sidebar=true" aria-label="Menu">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <h1 class="text-lg font-semibold">@yield('title', 'Admin')</h1>
