@@ -226,21 +226,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $kernel->bootstrap();
 
                 $log = [];
-                $runArt = function (array $cmd) use ($kernel, &$log) {
+                $runArt = function (string $command, array $params = []) use ($kernel, &$log) {
                     $output = new Symfony\Component\Console\Output\BufferedOutput();
                     try {
-                        $code = $kernel->call($cmd[0], array_slice($cmd, 1), $output);
+                        $code = $kernel->call($command, $params, $output);
                     } catch (Throwable $e) {
-                        $log[] = '$ artisan ' . implode(' ', $cmd) . "\nEXCEPTION: " . $e->getMessage();
+                        $log[] = '$ artisan ' . $command . "\nEXCEPTION: " . $e->getMessage();
                         return false;
                     }
-                    $log[] = '$ artisan ' . implode(' ', $cmd) . "\n" . $output->fetch();
+                    $log[] = '$ artisan ' . $command . "\n" . $output->fetch();
                     return $code === 0;
                 };
 
-                $okKey  = $runArt(['key:generate', '--force']);
-                $okMig  = $runArt(['migrate', '--force']);
-                $okSeed = $runArt(['db:seed', '--force']);
+                $okKey  = $runArt('key:generate', ['--force' => true]);
+                $okMig  = $runArt('migrate',      ['--force' => true]);
+                $okSeed = $runArt('db:seed',      ['--force' => true]);
 
                 // Create admin via Eloquent.
                 $admin = $_SESSION['admin'];
