@@ -1,9 +1,10 @@
 <?php
 /**
- * One-shot recovery: rewrite base + dashboard + admin Blade layouts so the
- * mobile sidebar works WITHOUT any JS framework. Uses a vanilla event
- * delegator + CSS so even if Alpine/Vite are completely broken on this host,
- * the menu open/close and overlay still function.
+ * Slinkv mobile sidebar / mob-nav recovery script — v3 (idempotent, anchor-based).
+ *
+ * Patches base, dashboard, admin and public layouts so the mobile menus work
+ * without any JS framework dependency. Smart enough to handle whatever state
+ * the files are in (whether previous CDN fallback patches were applied or not).
  *
  * Usage:
  *   Upload to public/ on the server, visit
@@ -18,6 +19,7 @@ if (function_exists('opcache_invalidate')) {
 }
 
 const FIX_TOKEN = 'slinkv-fix-2026';
+const HANDLER_MARKER = 'slv-vanilla-handler-v2';
 
 @ini_set('display_errors', '1');
 error_reporting(E_ALL);
@@ -31,145 +33,287 @@ header('Content-Type: text/plain; charset=utf-8');
 
 $BASE = dirname(__DIR__);
 
-$ok   = '[OK]  ';
-$skip = '[SKIP]';
-$fail = '[FAIL]';
-
-/**
- * @param string $path
- * @param array<int, array{find: string, replace: string, label: string}> $edits
- */
-function patch_file(string $path, array $edits): void
-{
-    global $ok, $skip, $fail;
-    if (!file_exists($path)) {
-        echo "$fail not found: $path\n";
-        return;
-    }
-    $orig = (string)file_get_contents($path);
-    $new  = $orig;
-    $hits = 0;
-    foreach ($edits as $e) {
-        if (str_contains($new, $e['replace']) && $e['replace'] !== $e['find']) {
-            echo "$skip $path :: " . $e['label'] . " (already applied)\n";
-            continue;
-        }
-        if (!str_contains($new, $e['find'])) {
-            echo "$skip $path :: " . $e['label'] . " (needle not present)\n";
-            continue;
-        }
-        $new = str_replace($e['find'], $e['replace'], $new);
-        $hits++;
-        echo "$ok   $path :: " . $e['label'] . "\n";
-    }
-    if ($hits === 0) {
-        return;
-    }
-    $bak = $path . '.bak-' . date('Ymd-His');
-    @copy($path, $bak);
-    if (@file_put_contents($path, $new) === false) {
-        echo "$fail could not write $path — check chmod 664\n";
-        return;
-    }
-    echo "$ok   wrote $path  (backup: " . basename($bak) . ")\n";
-}
+$OK   = '[OK]  ';
+$SKIP = '[SKIP]';
+$FAIL = '[FAIL]';
 
 echo "BASE = $BASE\n\n";
 
-// -------- base.blade.php --------
-patch_file($BASE . '/resources/views/layouts/base.blade.php', [
-    [
-        'label'   => 'inject Alpine CDN fallback + vanilla sidebar handler',
-        'find'    => "@vite(['resources/css/app.css', 'resources/js/app.js'])\n@stack('head')",
-        'replace' => "@vite(['resources/css/app.css', 'resources/js/app.js'])\n"
-            . "{{-- Alpine CDN fallback --}}\n"
-            . "<script>\nwindow.addEventListener('DOMContentLoaded', function () {\n"
-            . "    if (typeof window.Alpine === 'undefined') {\n"
-            . "        var s = document.createElement('script');\n"
-            . "        s.src = 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js';\n"
-            . "        s.defer = true;\n"
-            . "        document.head.appendChild(s);\n"
-            . "    }\n});\n</script>\n"
-            . "{{-- Bulletproof vanilla-JS sidebar toggle --}}\n"
-            . "<style>\n@media (max-width: 1023.98px) {\n"
-            . "  body:not(.sidebar-open) .slv-sidebar { transform: translateX(-100%) !important; }\n"
-            . "  body:not(.sidebar-open) .slv-sidebar-overlay { display: none !important; }\n"
-            . "  body.sidebar-open .slv-sidebar { transform: translateX(0) !important; }\n"
-            . "  body.sidebar-open .slv-sidebar-overlay { display: block !important; }\n"
-            . "  body.sidebar-open { overflow: hidden; }\n}\n</style>\n"
-            . "<script>\n(function(){\n  function ready(fn){ if(document.readyState!=='loading'){fn();} else {document.addEventListener('DOMContentLoaded',fn);} }\n"
-            . "  ready(function(){\n    document.addEventListener('click', function(e){\n"
-            . "      var open=e.target.closest('[data-sidebar-open]');\n"
-            . "      var close=e.target.closest('[data-sidebar-close]');\n"
-            . "      var over=e.target.closest('[data-sidebar-overlay]');\n"
-            . "      if(open){document.body.classList.add('sidebar-open');e.preventDefault();}\n"
-            . "      if(close||over){document.body.classList.remove('sidebar-open');e.preventDefault();}\n"
-            . "    }, false);\n"
-            . "    document.addEventListener('keydown', function(e){ if(e.key==='Escape'){document.body.classList.remove('sidebar-open');} });\n"
-            . "  });\n})();\n</script>\n"
-            . "@stack('head')",
-    ],
-]);
+function backup_and_write(string $path, string $newContent): bool
+{
+    global $OK, $FAIL;
+    $bak = $path . '.bak-' . date('Ymd-His');
+    @copy($path, $bak);
+    if (@file_put_contents($path, $newContent) === false) {
+        echo "$FAIL could not write $path (check chmod 664)\n";
+        return false;
+    }
+    echo "$OK   wrote $path (backup: " . basename($bak) . ")\n";
+    return true;
+}
 
-// -------- dashboard.blade.php --------
-patch_file($BASE . '/resources/views/layouts/dashboard.blade.php', [
-    [
-        'label'   => 'dashboard sidebar markup hooks',
-        'find'    => "<div x-data=\"{ sidebar: false }\" class=\"min-h-full\">\n  <!-- Mobile overlay -->\n  <div x-show=\"sidebar\" x-transition.opacity class=\"fixed inset-0 bg-black/40 z-40 lg:hidden\" x-on:click=\"sidebar=false\" style=\"display:none\"></div>\n\n  <!-- Sidebar -->\n  <aside class=\"fixed inset-y-0 left-0 z-50 w-[240px] bg-white border-r border-line flex flex-col transform lg:transform-none transition-transform\"\n         :class=\"sidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'\">",
-        'replace' => "<div x-data=\"{ sidebar: false }\" class=\"min-h-full\" data-sidebar-root>\n  <!-- Mobile overlay -->\n  <div x-show=\"sidebar\" x-transition.opacity x-on:click=\"sidebar=false\" data-sidebar-overlay class=\"slv-sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden\" style=\"display:none\"></div>\n\n  <!-- Sidebar -->\n  <aside data-sidebar class=\"slv-sidebar fixed inset-y-0 left-0 z-50 w-[240px] bg-white border-r border-line flex flex-col transform lg:transform-none transition-transform -translate-x-full lg:translate-x-0\"\n         :class=\"sidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'\">",
-    ],
-    [
-        'label'   => 'dashboard X (close) button',
-        'find'    => "      <button class=\"lg:hidden p-2\" x-on:click=\"sidebar=false\" aria-label=\"Tutup\">",
-        'replace' => "      <button type=\"button\" class=\"lg:hidden p-2\" data-sidebar-close x-on:click=\"sidebar=false\" aria-label=\"Tutup\">",
-    ],
-    [
-        'label'   => 'dashboard hamburger (open) button',
-        'find'    => "      <button class=\"lg:hidden p-2 -ml-2\" x-on:click=\"sidebar=true\" aria-label=\"Menu\">",
-        'replace' => "      <button type=\"button\" class=\"lg:hidden p-2 -ml-2\" data-sidebar-open x-on:click=\"sidebar=true\" aria-label=\"Menu\">",
-    ],
-]);
+/**
+ * Inject the vanilla-JS handler block into base.blade.php just before @stack('head').
+ * Removes any older handler block first (idempotent).
+ */
+function patch_base_layout(string $path): void
+{
+    global $OK, $SKIP, $FAIL;
 
-// -------- admin.blade.php --------
-patch_file($BASE . '/resources/views/layouts/admin.blade.php', [
-    [
-        'label'   => 'admin sidebar markup hooks',
-        'find'    => "<div x-data=\"{ sidebar:false }\" class=\"min-h-full\">\n  <div x-show=\"sidebar\" x-transition.opacity class=\"fixed inset-0 bg-black/40 z-40 lg:hidden\" x-on:click=\"sidebar=false\" style=\"display:none\"></div>\n  <aside class=\"fixed inset-y-0 left-0 z-50 w-[240px] bg-ink text-white flex flex-col transform lg:transform-none transition-transform\" :class=\"sidebar?'translate-x-0':'-translate-x-full lg:translate-x-0\">",
-        'replace' => "<div x-data=\"{ sidebar:false }\" class=\"min-h-full\" data-sidebar-root>\n  <div x-show=\"sidebar\" x-transition.opacity data-sidebar-overlay class=\"slv-sidebar-overlay fixed inset-0 bg-black/40 z-40 lg:hidden\" x-on:click=\"sidebar=false\" style=\"display:none\"></div>\n  <aside data-sidebar class=\"slv-sidebar fixed inset-y-0 left-0 z-50 w-[240px] bg-ink text-white flex flex-col transform lg:transform-none transition-transform -translate-x-full lg:translate-x-0\" :class=\"sidebar?'translate-x-0':'-translate-x-full lg:translate-x-0'\">",
-    ],
-    [
-        'label'   => 'admin X (close) button',
-        'find'    => "      <button class=\"lg:hidden p-2\" x-on:click=\"sidebar=false\" aria-label=\"Tutup\">",
-        'replace' => "      <button type=\"button\" class=\"lg:hidden p-2\" data-sidebar-close x-on:click=\"sidebar=false\" aria-label=\"Tutup\">",
-    ],
-    [
-        'label'   => 'admin hamburger (open) button',
-        'find'    => "      <button class=\"lg:hidden p-2 -ml-2\" x-on:click=\"sidebar=true\">",
-        'replace' => "      <button type=\"button\" class=\"lg:hidden p-2 -ml-2\" data-sidebar-open x-on:click=\"sidebar=true\" aria-label=\"Menu\">",
-    ],
-]);
+    if (!file_exists($path)) { echo "$FAIL not found: $path\n"; return; }
+    $src = (string) file_get_contents($path);
 
-// Clear compiled Blade views and bootstrap caches so the patched layouts go live now.
+    // Strip any existing handler block we previously injected (between marker comment and </script> closing of our handler).
+    // Pattern: from "{{-- slv-vanilla-handler-v" ... up to first occurrence of "})();\n</script>\n" (our script's end).
+    $src = preg_replace(
+        '/\{\{--\s*slv-vanilla-handler-v\d+.*?<\/script>\s*/s',
+        '',
+        $src
+    ) ?? $src;
+
+    // Also strip the older Alpine CDN fallback block (the one we shipped in v0.4.4) — we'll re-add a cleaner version.
+    $src = preg_replace(
+        '/\{\{--\s*Fallback:\s*load Alpine\.js.*?<\/script>\s*/s',
+        '',
+        $src
+    ) ?? $src;
+    $src = preg_replace(
+        '/\{\{--\s*Alpine CDN fallback\s*--\}\}\s*<script>\s*window\.addEventListener.*?<\/script>\s*/s',
+        '',
+        $src
+    ) ?? $src;
+
+    $block = <<<'BLADE'
+{{-- Alpine CDN fallback (load only if Vite bundle failed to expose it) --}}
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.Alpine === 'undefined') {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js';
+        s.defer = true;
+        document.head.appendChild(s);
+    }
+});
+</script>
+{{-- slv-vanilla-handler-v2 — bulletproof vanilla-JS toggles (sidebar + mob-nav) --}}
+<style>
+@media (max-width: 1023.98px) {
+  body:not(.sidebar-open) .slv-sidebar { transform: translateX(-100%) !important; }
+  body:not(.sidebar-open) .slv-sidebar-overlay { display: none !important; }
+  body.sidebar-open .slv-sidebar { transform: translateX(0) !important; }
+  body.sidebar-open .slv-sidebar-overlay { display: block !important; }
+  body.sidebar-open { overflow: hidden; }
+}
+</style>
+<script>
+(function () {
+  function ready(fn) {
+    if (document.readyState !== 'loading') { fn(); }
+    else { document.addEventListener('DOMContentLoaded', fn); }
+  }
+  ready(function () {
+    document.addEventListener('click', function (e) {
+      var open    = e.target.closest('[data-sidebar-open]');
+      var close   = e.target.closest('[data-sidebar-close]');
+      var over    = e.target.closest('[data-sidebar-overlay]');
+      var mobBtn  = e.target.closest('[data-mobnav-toggle]');
+      if (open)            { document.body.classList.add('sidebar-open');    e.preventDefault(); }
+      if (close || over)   { document.body.classList.remove('sidebar-open'); e.preventDefault(); }
+      if (mobBtn) {
+        var panel = document.querySelector('[data-mobnav]') || document.getElementById('mob-nav');
+        if (panel) { panel.classList.toggle('hidden'); e.preventDefault(); }
+      }
+    }, false);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        document.body.classList.remove('sidebar-open');
+        var panel = document.querySelector('[data-mobnav]') || document.getElementById('mob-nav');
+        if (panel && !panel.classList.contains('hidden')) { panel.classList.add('hidden'); }
+      }
+    });
+  });
+})();
+</script>
+BLADE;
+
+    // Anchor: inject right before @stack('head').
+    if (!str_contains($src, "@stack('head')")) {
+        echo "$FAIL base.blade.php has no @stack('head') anchor — manual fix needed.\n";
+        return;
+    }
+    $patched = str_replace("@stack('head')", $block . "\n@stack('head')", $src);
+
+    if ($patched === $src) {
+        echo "$SKIP base.blade.php replacement produced no change.\n";
+        return;
+    }
+
+    if (backup_and_write($path, $patched)) {
+        echo "$OK   base.blade.php :: vanilla handler installed\n";
+    }
+}
+
+/**
+ * Inject data-sidebar-* hooks into a dashboard/admin layout file.
+ * Uses regex matching so it works regardless of class-attribute ordering.
+ */
+function patch_sidebar_layout(string $path, string $label): void
+{
+    global $OK, $SKIP, $FAIL;
+    if (!file_exists($path)) { echo "$FAIL not found: $path\n"; return; }
+    $src = (string) file_get_contents($path);
+    $orig = $src;
+
+    // 1. Overlay div: add `data-sidebar-overlay` + `slv-sidebar-overlay` class.
+    if (!str_contains($src, 'data-sidebar-overlay')) {
+        $src = preg_replace_callback(
+            '/(<div\b[^>]*\bx-show="sidebar"[^>]*\bclass=")([^"]*)("[^>]*>)/',
+            function ($m) {
+                $classes = trim($m[2] . ' slv-sidebar-overlay');
+                return $m[1] . $classes . '" data-sidebar-overlay' . substr($m[3], 1);
+            },
+            $src,
+            1
+        ) ?? $src;
+    }
+
+    // 2. Aside: add `data-sidebar` + `slv-sidebar` class + ensure `-translate-x-full lg:translate-x-0`.
+    if (!str_contains($src, 'data-sidebar=') && !str_contains($src, ' data-sidebar ')) {
+        $src = preg_replace_callback(
+            '/(<aside\b[^>]*\bclass=")([^"]*)("[^>]*>)/',
+            function ($m) {
+                $classes = $m[2];
+                if (!str_contains($classes, 'slv-sidebar')) { $classes .= ' slv-sidebar'; }
+                if (!str_contains($classes, '-translate-x-full')) { $classes .= ' -translate-x-full lg:translate-x-0'; }
+                return $m[1] . trim($classes) . '" data-sidebar' . substr($m[3], 1);
+            },
+            $src,
+            1
+        ) ?? $src;
+    }
+
+    // 3. Root x-data div: tag with data-sidebar-root.
+    if (!str_contains($src, 'data-sidebar-root')) {
+        $src = preg_replace(
+            '/(<div\b[^>]*\bx-data="\{\s*sidebar\s*:\s*false\s*\}"[^>]*?)>/',
+            '$1 data-sidebar-root>',
+            $src,
+            1
+        ) ?? $src;
+    }
+
+    // 4. Close buttons: those with x-on:click="sidebar=false" but missing data-sidebar-close.
+    $src = preg_replace_callback(
+        '/<button\b([^>]*\bx-on:click="sidebar=false"[^>]*)>/',
+        function ($m) {
+            if (str_contains($m[1], 'data-sidebar-close')) { return $m[0]; }
+            $attrs = $m[1];
+            if (!preg_match('/\btype="button"/', $attrs)) { $attrs = ' type="button"' . $attrs; }
+            return '<button' . $attrs . ' data-sidebar-close>';
+        },
+        $src
+    ) ?? $src;
+
+    // 5. Open buttons: those with x-on:click="sidebar=true" but missing data-sidebar-open.
+    $src = preg_replace_callback(
+        '/<button\b([^>]*\bx-on:click="sidebar=true"[^>]*)>/',
+        function ($m) {
+            if (str_contains($m[1], 'data-sidebar-open')) { return $m[0]; }
+            $attrs = $m[1];
+            if (!preg_match('/\btype="button"/', $attrs)) { $attrs = ' type="button"' . $attrs; }
+            if (!preg_match('/\baria-label=/', $attrs))   { $attrs .= ' aria-label="Menu"'; }
+            return '<button' . $attrs . ' data-sidebar-open>';
+        },
+        $src
+    ) ?? $src;
+
+    if ($src === $orig) {
+        echo "$SKIP $label: nothing changed (already patched)\n";
+        return;
+    }
+    if (backup_and_write($path, $src)) {
+        echo "$OK   $label: data-sidebar-* hooks installed\n";
+    }
+}
+
+/**
+ * Patch the public layout: hamburger gets data-mobnav-toggle, mob-nav panel gets data-mobnav,
+ * and the Dashboard auth-link becomes mobile-visible.
+ */
+function patch_public_layout(string $path): void
+{
+    global $OK, $SKIP, $FAIL;
+    if (!file_exists($path)) { echo "$FAIL not found: $path\n"; return; }
+    $src = (string) file_get_contents($path);
+    $orig = $src;
+
+    // Add data-mobnav-toggle to the lg:hidden hamburger button.
+    if (!str_contains($src, 'data-mobnav-toggle')) {
+        $src = preg_replace_callback(
+            '/<button\b([^>]*\blg:hidden\b[^>]*aria-label="Menu"[^>]*)>/',
+            function ($m) {
+                $attrs = $m[1];
+                if (!preg_match('/\btype="button"/', $attrs)) { $attrs = ' type="button"' . $attrs; }
+                return '<button' . $attrs . ' data-mobnav-toggle>';
+            },
+            $src,
+            1
+        ) ?? $src;
+    }
+
+    // Add data-mobnav to the panel.
+    if (!str_contains($src, 'data-mobnav') || strpos($src, 'data-mobnav') === strpos($src, 'data-mobnav-toggle')) {
+        $src = preg_replace(
+            '/<div\b([^>]*\bid="mob-nav"[^>]*)>/',
+            '<div$1 data-mobnav>',
+            $src,
+            1
+        ) ?? $src;
+    }
+
+    // Make Dashboard link visible on mobile when logged in (remove "hidden sm:inline" from that specific anchor).
+    $src = preg_replace(
+        '/(<a\b[^>]*route\(\'admin\.dashboard\'\)\s*:\s*route\(\'dashboard\.index\'\)\s*\}\}"\s*class=")hidden sm:inline\s+/',
+        '$1',
+        $src
+    ) ?? $src;
+
+    if ($src === $orig) {
+        echo "$SKIP public.blade.php: nothing changed (already patched)\n";
+        return;
+    }
+    if (backup_and_write($path, $src)) {
+        echo "$OK   public.blade.php: mob-nav hooks + mobile Dashboard link installed\n";
+    }
+}
+
+// ---- run patches ----
+patch_base_layout($BASE . '/resources/views/layouts/base.blade.php');
+patch_sidebar_layout($BASE . '/resources/views/layouts/dashboard.blade.php', 'dashboard.blade.php');
+patch_sidebar_layout($BASE . '/resources/views/layouts/admin.blade.php', 'admin.blade.php');
+patch_public_layout($BASE . '/resources/views/layouts/public.blade.php');
+
+// ---- clear compiled blade views + bootstrap caches ----
 $viewsDir = $BASE . '/storage/framework/views';
 if (is_dir($viewsDir)) {
     $cleared = 0;
     foreach (glob($viewsDir . '/*.php') ?: [] as $f) {
         if (@unlink($f)) { $cleared++; }
     }
-    echo "$ok   cleared $cleared compiled view file(s)\n";
+    echo "$OK   cleared $cleared compiled view file(s)\n";
 } else {
     @mkdir($viewsDir, 0775, true);
-    echo "$ok   created missing $viewsDir\n";
+    echo "$OK   created missing $viewsDir\n";
 }
-
 foreach (['config.php', 'routes-v7.php', 'events.php'] as $f) {
     $p = $BASE . '/bootstrap/cache/' . $f;
     if (file_exists($p)) {
         @unlink($p);
-        echo "$ok   removed bootstrap/cache/$f\n";
+        echo "$OK   removed bootstrap/cache/$f\n";
     }
 }
 
-echo "\nDONE. Hard-reload your dashboard (Ctrl+Shift+R or mobile browser clear cache).\n";
-echo "Now test on mobile: hamburger opens sidebar; X / outside-tap / Esc closes it.\n";
+echo "\nDONE. Hard-reload your site on mobile (clear browser cache).\n";
+echo "Test: homepage hamburger opens menu; dashboard/admin hamburger opens sidebar;\n";
+echo "X / outside-tap / Esc closes; Dashboard link visible in homepage header when logged in.\n";
 echo "REMEMBER to delete " . basename(__FILE__) . " from the server.\n";

@@ -36,10 +36,8 @@ window.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
-{{-- Bulletproof vanilla-JS sidebar toggle.
-     Works whether Alpine loads or not. Uses event delegation + data-* hooks
-     so it can't break from inline-handler errors. CSS below ensures sidebar
-     stays hidden on mobile until body.sidebar-open is set. --}}
+{{-- slv-vanilla-handler-v2 — bulletproof vanilla-JS toggles (sidebar + mob-nav).
+     Works whether Alpine loads or not. Uses event delegation + data-* hooks. --}}
 <style>
 @media (max-width: 1023.98px) {
   body:not(.sidebar-open) .slv-sidebar { transform: translateX(-100%) !important; }
@@ -57,15 +55,24 @@ window.addEventListener('DOMContentLoaded', function () {
   }
   ready(function () {
     document.addEventListener('click', function (e) {
-      var open  = e.target.closest('[data-sidebar-open]');
-      var close = e.target.closest('[data-sidebar-close]');
-      var over  = e.target.closest('[data-sidebar-overlay]');
-      if (open)  { document.body.classList.add('sidebar-open');    e.preventDefault(); }
-      if (close || over) { document.body.classList.remove('sidebar-open'); e.preventDefault(); }
+      var open    = e.target.closest('[data-sidebar-open]');
+      var close   = e.target.closest('[data-sidebar-close]');
+      var over    = e.target.closest('[data-sidebar-overlay]');
+      var mobBtn  = e.target.closest('[data-mobnav-toggle]');
+      if (open)            { document.body.classList.add('sidebar-open');    e.preventDefault(); }
+      if (close || over)   { document.body.classList.remove('sidebar-open'); e.preventDefault(); }
+      if (mobBtn) {
+        var panel = document.querySelector('[data-mobnav]') || document.getElementById('mob-nav');
+        if (panel) { panel.classList.toggle('hidden'); e.preventDefault(); }
+      }
     }, false);
-    // ESC closes sidebar
+    // ESC closes sidebar + mob-nav
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { document.body.classList.remove('sidebar-open'); }
+      if (e.key === 'Escape') {
+        document.body.classList.remove('sidebar-open');
+        var panel = document.querySelector('[data-mobnav]') || document.getElementById('mob-nav');
+        if (panel && !panel.classList.contains('hidden')) { panel.classList.add('hidden'); }
+      }
     });
   });
 })();

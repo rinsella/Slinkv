@@ -24,7 +24,7 @@ if (function_exists('opcache_invalidate')) {
 }
 
 // Visible build marker so user can verify the right file is running.
-const INSTALLER_VERSION = 'v0.4.5-2026051604';
+const INSTALLER_VERSION = 'v0.4.6-2026051605';
 
 // Show all errors inside installer so we never blank-500 on shared hosting.
 @ini_set('display_errors', '1');

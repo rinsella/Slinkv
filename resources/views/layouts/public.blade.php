@@ -14,17 +14,17 @@
     </nav>
     <div class="flex items-center gap-3">
       @auth
-        <a href="{{ auth()->user()->isAdmin() ? route('admin.dashboard') : route('dashboard.index') }}" class="hidden sm:inline px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-700">Dashboard</a>
+        <a href="{{ auth()->user()->isAdmin() ? route('admin.dashboard') : route('dashboard.index') }}" class="px-3 py-2 rounded-xl bg-primary text-white text-xs sm:text-sm font-semibold hover:bg-primary-700">Dashboard</a>
       @else
         <a href="{{ route('login') }}" class="hidden sm:inline text-sm font-medium text-ink hover:text-primary">Masuk</a>
-        <a href="{{ route('register') }}" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-700">Daftar Gratis</a>
+        <a href="{{ route('register') }}" class="hidden sm:inline px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-700">Daftar Gratis</a>
       @endauth
-      <button class="lg:hidden p-2 -mr-2 text-ink" x-data x-on:click="document.getElementById('mob-nav').classList.toggle('hidden')" aria-label="Menu">
+      <button type="button" class="lg:hidden p-2 -mr-2 text-ink" data-mobnav-toggle x-data x-on:click="document.getElementById('mob-nav').classList.toggle('hidden')" aria-label="Menu">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
     </div>
   </div>
-  <div id="mob-nav" class="lg:hidden hidden border-t border-line bg-white">
+  <div id="mob-nav" data-mobnav class="lg:hidden hidden border-t border-line bg-white">
     <div class="px-4 py-3 flex flex-col gap-3 text-sm">
       <a href="{{ route('solutions') }}" class="py-2">Solusi</a>
       <a href="{{ route('how-it-works') }}" class="py-2">Cara Kerja</a>
@@ -32,7 +32,16 @@
       <a href="{{ route('faq') }}" class="py-2">FAQ</a>
       <a href="{{ route('about') }}" class="py-2">Tentang</a>
       <a href="{{ route('contact') }}" class="py-2">Kontak</a>
-      @guest <a href="{{ route('login') }}" class="py-2 font-semibold">Masuk</a> @endguest
+      @guest
+        <a href="{{ route('login') }}" class="py-2 font-semibold">Masuk</a>
+        <a href="{{ route('register') }}" class="py-2 font-semibold text-primary">Daftar Gratis</a>
+      @endguest
+      @auth
+        <a href="{{ auth()->user()->isAdmin() ? route('admin.dashboard') : route('dashboard.index') }}" class="py-2 font-semibold text-primary">Dashboard</a>
+        <form method="POST" action="{{ route('logout') }}">@csrf
+          <button class="py-2 text-left text-danger font-semibold w-full">Logout</button>
+        </form>
+      @endauth
     </div>
   </div>
 </header>
