@@ -23,6 +23,19 @@
 <link rel="apple-touch-icon" href="{{ url('/apple-touch-icon.png') }}">
 <link rel="manifest" href="{{ url('/site.webmanifest') }}">
 @vite(['resources/css/app.css', 'resources/js/app.js'])
+{{-- Fallback: load Alpine.js from CDN if the Vite-built bundle failed to expose it.
+     Some shared hosts (LiteSpeed cache, mod_pagespeed, aggressive CDNs) corrupt or
+     drop the bundled JS — without Alpine the mobile sidebar gets stuck open. --}}
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.Alpine === 'undefined') {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js';
+        s.defer = true;
+        document.head.appendChild(s);
+    }
+});
+</script>
 @stack('head')
 </head>
 <body class="h-full bg-surface text-ink antialiased">
