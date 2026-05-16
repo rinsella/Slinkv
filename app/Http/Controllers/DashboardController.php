@@ -129,7 +129,7 @@ class DashboardController extends Controller
         $sub = $user->activeSubscription();
         $invoices = \App\Models\Payment::where('user_id', $user->id)->latest()->take(20)->get();
         $plans = \App\Models\Plan::where('is_active', true)->orderBy('sort_order')->get();
-        $beta = (string) \App\Models\Setting::get('beta_mode', '1') === '1';
+        $beta = app(\App\Services\BetaModeService::class)->isFreeAllFeatures();
         return view('dashboard.billing', compact('plan','sub','invoices','plans','beta'));
     }
 
@@ -141,7 +141,7 @@ class DashboardController extends Controller
             return back()->withErrors(['plan' => 'Paket ini sedang tidak aktif.']);
         }
 
-        $beta = (string) \App\Models\Setting::get('beta_mode', '1') === '1';
+        $beta = app(\App\Services\BetaModeService::class)->isFreeAllFeatures();
         if ($beta) {
             return back()->with('success', 'Saat ini SlinkV dalam beta — semua fitur sudah tersedia gratis. Checkout dinonaktifkan sementara.');
         }
@@ -150,9 +150,21 @@ class DashboardController extends Controller
         $invoiceNumber = 'INV-' . now()->format('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(6));
         $expirationHours = (int) \App\Models\Setting::get('invoice_expiration_hours', 24);
 
+        // Buat Subscription pending dulu
+        $subscription = \App\Models\Subscription::create([
+            'user_id' => $user->id,
+            'plan_id' => $plan->id,
+            'status' => 'pending',
+            'started_at' => null,
+            'expires_at' => null,
+            'payment_gateway' => 'manual',
+            'payment_reference' => $invoiceNumber,
+        ]);
+
         $payment = \App\Models\Payment::create([
             'user_id' => $user->id,
             'plan_id' => $plan->id,
+            'subscription_id' => $subscription->id,
             'amount' => $plan->price,
             'currency' => 'IDR',
             'invoice_number' => $invoiceNumber,

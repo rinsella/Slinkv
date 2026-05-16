@@ -3,19 +3,19 @@
 namespace App\Console\Commands;
 
 use App\Models\Plan;
-use App\Models\Setting;
 use App\Models\ShortLink;
 use App\Models\Subscription;
+use App\Services\BetaModeService;
 use Illuminate\Console\Command;
 
 class ExpireSubscriptionsCommand extends Command
 {
     protected $signature = 'subscriptions:expire {--dry-run : Tampilkan saja tanpa mengubah}';
-    protected $description = 'Expire active subscriptions yang sudah lewat tanggal, dan downgrade user ke Free (kecuali beta_mode=1).';
+    protected $description = 'Expire active subscriptions yang sudah lewat tanggal, dan downgrade user ke Free (kecuali beta free-all-features aktif).';
 
-    public function handle(): int
+    public function handle(BetaModeService $betaSvc): int
     {
-        $beta = (string) Setting::get('beta_mode', '1') === '1';
+        $beta = $betaSvc->isFreeAllFeatures();
         $dry = (bool) $this->option('dry-run');
 
         $now = now();

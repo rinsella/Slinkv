@@ -53,10 +53,24 @@ class LinkController extends Controller
 
     public function create(Request $request)
     {
-        $plan = $this->limits->planFor($request->user());
+        $user = $request->user();
+        $plan = $this->limits->planFor($user);
+        $features = $this->planFeatures($user);
         $prefill = $request->session()->get('prefill_url')
             ?? $request->session()->pull('pending_destination_url');
-        return view('dashboard.links.create', compact('plan', 'prefill'));
+        return view('dashboard.links.create', compact('plan', 'prefill', 'features'));
+    }
+
+    private function planFeatures(\App\Models\User $user): array
+    {
+        return [
+            'canUseCustomAlias' => $this->limits->canUseCustomAlias($user),
+            'canUseFallback' => $this->limits->canUseFallback($user),
+            'canUseGeoFilter' => $this->limits->canUseGeoFilter($user),
+            'canUseDeviceFilter' => $this->limits->canUseDeviceFilter($user),
+            'geoFilterLimit' => $this->limits->geoFilterLimit($user),
+            'isBetaFree' => $this->limits->isBetaFree(),
+        ];
     }
 
     public function store(Request $request)
@@ -116,10 +130,18 @@ class LinkController extends Controller
         $blocked = $this->parseCountries($data['blocked_countries'] ?? '');
 
         if (!empty($data['geo_filter_enabled'])) {
+            if (!$this->limits->canUseGeoFilter($user)) {
+                return back()->withInput()->withErrors(['geo_filter_enabled' => 'Geo filter tidak tersedia di paket Anda.']);
+            }
             $geoLimit = $this->limits->geoFilterLimit($user);
             if ($geoLimit !== null && count($allowed) > $geoLimit) {
                 return back()->withInput()->withErrors(['allowed_countries' => "Maksimal {$geoLimit} negara untuk paket Anda."]);
             }
+        }
+
+        $deviceFilter = $data['device_filter'] ?? 'all';
+        if ($deviceFilter !== 'all' && !$this->limits->canUseDeviceFilter($user)) {
+            return back()->withInput()->withErrors(['device_filter' => 'Filter device tidak tersedia di paket Anda.']);
         }
 
         $link = ShortLink::create([
@@ -132,7 +154,7 @@ class LinkController extends Controller
             'geo_filter_enabled' => (bool) ($data['geo_filter_enabled'] ?? false),
             'allowed_countries' => $allowed ?: null,
             'blocked_countries' => $blocked ?: null,
-            'device_filter' => $data['device_filter'] ?? 'all',
+            'device_filter' => $deviceFilter,
             'expires_at' => $data['expires_at'] ?? null,
             'password' => !empty($data['password']) ? bcrypt($data['password']) : null,
             'is_active' => true,
@@ -150,8 +172,10 @@ class LinkController extends Controller
     public function edit(ShortLink $link)
     {
         Gate::authorize('update', $link);
-        $plan = $this->limits->planFor(request()->user());
-        return view('dashboard.links.edit', compact('link', 'plan'));
+        $user = request()->user();
+        $plan = $this->limits->planFor($user);
+        $features = $this->planFeatures($user);
+        return view('dashboard.links.edit', compact('link', 'plan', 'features'));
     }
 
     public function update(Request $request, ShortLink $link)
@@ -189,10 +213,17 @@ class LinkController extends Controller
         $allowed = $this->parseCountries($data['allowed_countries'] ?? '');
         $blocked = $this->parseCountries($data['blocked_countries'] ?? '');
         if (!empty($data['geo_filter_enabled'])) {
+            if (!$this->limits->canUseGeoFilter($user)) {
+                return back()->withInput()->withErrors(['geo_filter_enabled' => 'Geo filter tidak tersedia di paket Anda.']);
+            }
             $geoLimit = $this->limits->geoFilterLimit($user);
             if ($geoLimit !== null && count($allowed) > $geoLimit) {
                 return back()->withInput()->withErrors(['allowed_countries' => "Maksimal {$geoLimit} negara untuk paket Anda."]);
             }
+        }
+        $deviceFilter = $data['device_filter'] ?? 'all';
+        if ($deviceFilter !== 'all' && !$this->limits->canUseDeviceFilter($user)) {
+            return back()->withInput()->withErrors(['device_filter' => 'Filter device tidak tersedia di paket Anda.']);
         }
 
         $update = [
@@ -203,7 +234,7 @@ class LinkController extends Controller
             'geo_filter_enabled' => (bool) ($data['geo_filter_enabled'] ?? false),
             'allowed_countries' => $allowed ?: null,
             'blocked_countries' => $blocked ?: null,
-            'device_filter' => $data['device_filter'] ?? 'all',
+            'device_filter' => $deviceFilter,
             'expires_at' => $data['expires_at'] ?? null,
             'is_active' => (bool) ($data['is_active'] ?? $link->is_active),
         ];

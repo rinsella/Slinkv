@@ -15,7 +15,7 @@
       <label class="block text-sm font-medium mb-1">Judul</label>
       <input name="title" value="{{ old('title', $link->title) }}" class="w-full rounded-xl border-line focus:ring-primary focus:border-primary">
     </div>
-    @if ($plan->has_custom_alias)
+    @if (!empty($features['canUseCustomAlias']))
     <div>
       <label class="block text-sm font-medium mb-1">Custom Alias (slug)</label>
       <div class="flex">
@@ -25,7 +25,7 @@
       <p class="mt-1 text-xs text-muted">3-32 karakter (huruf, angka, - dan _). Mengubah alias akan mengubah URL pendek.</p>
     </div>
     @endif
-    @if ($plan->has_fallback_url)
+    @if (!empty($features['canUseFallback']))
     <div>
       <label class="block text-sm font-medium mb-1">Fallback URL</label>
       <input type="url" name="fallback_url" value="{{ old('fallback_url', $link->fallback_url) }}" class="w-full rounded-xl border-line focus:ring-primary focus:border-primary">
@@ -47,7 +47,7 @@
     </div>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="bot_protection_enabled" value="1" {{ old('bot_protection_enabled', $link->bot_protection_enabled) ? 'checked' : '' }} class="rounded border-line text-primary focus:ring-primary"> Bot Protection</label>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {{ old('is_active', $link->is_active) ? 'checked' : '' }} class="rounded border-line text-primary focus:ring-primary"> Link aktif</label>
-    @if ($plan->geo_filter_limit !== 0)
+    @if (!empty($features['canUseGeoFilter']))
     <div class="border-t border-line pt-5">
       <label class="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="geo_filter_enabled" value="1" {{ old('geo_filter_enabled', $link->geo_filter_enabled) ? 'checked' : '' }} class="rounded border-line text-primary focus:ring-primary"> Geo Filter</label>
       <div class="grid sm:grid-cols-2 gap-4 mt-3">

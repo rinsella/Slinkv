@@ -6,9 +6,11 @@
     <div>
       <h2 class="text-4xl font-extrabold leading-tight">Daftar gratis, mulai pendekkan link sekarang.</h2>
       <ul class="mt-6 space-y-2 text-white/90 text-sm">
-        <li>✓ 5 link aktif gratis</li>
-        <li>✓ Bot protection basic</li>
-        <li>✓ Analytics 7 hari</li>
+        <li>✓ Semua fitur premium gratis selama beta</li>
+        <li>✓ Unlimited link selama beta</li>
+        <li>✓ Bot protection advanced</li>
+        <li>✓ Analytics lengkap</li>
+        <li>✓ Custom alias, QR code, fallback URL</li>
         <li>✓ Tidak perlu kartu kredit</li>
       </ul>
     </div>

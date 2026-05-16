@@ -33,18 +33,52 @@ class AdminPaymentController extends Controller
 
     public function markPaid(Payment $payment)
     {
-        $payment->update(['status' => 'paid', 'paid_at' => now()]);
-        if ($payment->subscription_id) {
-            $period = $payment->plan?->billing_period === 'yearly' ? now()->addYear() : now()->addMonth();
-            Subscription::where('id', $payment->subscription_id)->update([
-                'status' => 'active',
-                'started_at' => now(),
-                'expires_at' => $period,
-            ]);
-            User::where('id', $payment->user_id)->update(['plan_id' => $payment->plan_id]);
+        // Idempotent: jangan proses dua kali
+        if ($payment->status === 'paid') {
+            return back()->with('success', 'Pembayaran sudah paid sebelumnya.');
         }
-        $this->audit->log('payment_mark_paid', $payment, null, ['status' => 'paid'], $payment->user_id);
-        return back()->with('success', 'Pembayaran ditandai paid.');
+
+        $payment->update(['status' => 'paid', 'paid_at' => now()]);
+
+        $plan = $payment->plan;
+        $billing = $plan?->billing_period;
+        $expires = match ($billing) {
+            'yearly' => now()->addYear(),
+            'monthly' => now()->addMonth(),
+            default => ($plan && (float) $plan->price <= 0) ? null : now()->addMonth(),
+        };
+
+        // Buat subscription jika belum ada
+        $subscription = $payment->subscription_id ? Subscription::find($payment->subscription_id) : null;
+        if (!$subscription) {
+            $subscription = Subscription::create([
+                'user_id' => $payment->user_id,
+                'plan_id' => $payment->plan_id,
+                'status' => 'pending',
+                'payment_gateway' => $payment->gateway ?: 'manual',
+                'payment_reference' => $payment->invoice_number,
+            ]);
+            $payment->update(['subscription_id' => $subscription->id]);
+        }
+
+        // Cancel/expire subscription active user lain agar tidak dobel aktif
+        Subscription::where('user_id', $payment->user_id)
+            ->where('status', 'active')
+            ->where('id', '!=', $subscription->id)
+            ->update(['status' => 'expired']);
+
+        // Aktifkan subscription baru
+        $subscription->update([
+            'status' => 'active',
+            'started_at' => now(),
+            'expires_at' => $expires,
+        ]);
+
+        // Update user plan
+        User::where('id', $payment->user_id)->update(['plan_id' => $payment->plan_id]);
+
+        $this->audit->log('payment_mark_paid', $payment, null, ['status' => 'paid', 'subscription_id' => $subscription->id], $payment->user_id);
+        return back()->with('success', 'Pembayaran ditandai paid & paket aktif.');
     }
 
     public function markFailed(Payment $payment)
