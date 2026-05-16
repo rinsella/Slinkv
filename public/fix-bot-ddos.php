@@ -1,9 +1,10 @@
 <?php
 /**
- * Slinkv anti-DDoS / CPU survival hotfix — v0.4.7
+ * Slinkv anti-DDoS / CPU survival hotfix — v0.4.8
  *
- * Applies the bot-flood / CPU-burn protection to an EXISTING Slinkv install
- * without reinstall. Idempotent — safe to run multiple times.
+ * Applies the bot-flood / CPU-burn protection AND the bulletproof mobile
+ * admin sidebar rewrite to an EXISTING Slinkv install without reinstall.
+ * Idempotent — safe to run multiple times.
  *
  * What it does:
  *   1. Drops in app/Http/Middleware/RedirectRateLimit.php
@@ -303,22 +304,143 @@ if (!is_file($redirectSvcPath)) {
 }
 
 // ---------------------------------------------------------------------------
-// STEP 5 — Patch admin layout mobile buttons
+// STEP 5 — Rewrite admin layout body (bulletproof zero-Alpine mobile sidebar)
 // ---------------------------------------------------------------------------
 $adminLayoutPath = $BASE . '/resources/views/layouts/admin.blade.php';
-echo patch(
-    $adminLayoutPath,
-    "<button type=\"button\" class=\"lg:hidden p-2\" data-sidebar-close x-on:click=\"sidebar=false\" aria-label=\"Tutup\">\n        <svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg>\n      </button>",
-    "<button type=\"button\" class=\"lg:hidden p-3 -mr-2 inline-flex items-center justify-center\" data-sidebar-close x-on:click=\"sidebar=false\" aria-label=\"Tutup\">\n        <svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"pointer-events:none\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg>\n      </button>",
-    'admin.blade.php close button'
-) . "\n";
+if (!is_file($adminLayoutPath)) {
+    echo "$FAIL missing $adminLayoutPath\n";
+} else {
+    $orig = (string) file_get_contents($adminLayoutPath);
 
-echo patch(
-    $adminLayoutPath,
-    "<button type=\"button\" class=\"lg:hidden p-2 -ml-2\" data-sidebar-open x-on:click=\"sidebar=true\" aria-label=\"Menu\">\n        <svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg>\n      </button>",
-    "<button type=\"button\" class=\"lg:hidden p-3 -ml-2 inline-flex items-center justify-center\" data-sidebar-open x-on:click=\"sidebar=true\" aria-label=\"Menu\">\n        <svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" style=\"pointer-events:none\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg>\n      </button>",
-    'admin.blade.php open button'
-) . "\n";
+    if (str_contains($orig, 'adm-shell-css') && str_contains($orig, 'adm-shell-js')) {
+        echo "$SKIP admin.blade.php (already on bulletproof shell v0.4.8)\n";
+    } else {
+        // Replace the entire @section('body') ... @endsection block.
+        $startMarker = "@section('body')";
+        $endMarker   = "@endsection";
+        $startPos = strpos($orig, $startMarker);
+        $endPos   = $startPos !== false ? strpos($orig, $endMarker, $startPos) : false;
+
+        if ($startPos === false || $endPos === false) {
+            echo "$FAIL admin.blade.php (could not locate @section('body') block)\n";
+        } else {
+            $newBody = <<<'BLADE'
+@section('body')
+{{-- v0.4.8 — bulletproof admin shell: zero Alpine deps, inline-styled
+     closed-by-default sidebar, ID-based vanilla JS toggle. Survives even
+     if Tailwind/Alpine fail to load (e.g. LiteSpeed cache stripping). --}}
+<style id="adm-shell-css">
+  #adm-sidebar { position: fixed; top: 0; bottom: 0; left: 0; width: 240px;
+                 background: #0b1220; color: #fff; z-index: 50;
+                 display: flex; flex-direction: column;
+                 transform: translateX(-100%); transition: transform .22s ease;
+                 will-change: transform; }
+  #adm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45);
+                 z-index: 40; display: none; }
+  #adm-main   { min-height: 100vh; }
+  #adm-shell[data-state="open"] #adm-sidebar { transform: translateX(0); }
+  #adm-shell[data-state="open"] #adm-overlay { display: block; }
+  @media (min-width: 1024px) {
+    #adm-sidebar { transform: translateX(0) !important; }
+    #adm-overlay { display: none !important; }
+    #adm-main   { padding-left: 240px; }
+    #adm-mobile-open, #adm-mobile-close { display: none !important; }
+  }
+  #adm-mobile-open, #adm-mobile-close {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; background: transparent; border: 0;
+    cursor: pointer; padding: 0;
+  }
+  #adm-mobile-open svg, #adm-mobile-close svg { pointer-events: none; }
+</style>
+
+<div id="adm-shell" data-state="closed" class="min-h-full">
+  <div id="adm-overlay" data-adm-close></div>
+
+  <aside id="adm-sidebar" aria-label="Admin navigation">
+    <div class="px-5 h-16 flex items-center justify-between border-b border-white/10">
+      <a href="{{ route('admin.dashboard') }}" class="text-xl font-bold">slinkv <span class="text-xs text-primary">admin</span></a>
+      <button type="button" id="adm-mobile-close" data-adm-close aria-label="Tutup menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <nav class="flex-1 overflow-y-auto px-2 py-3 text-sm">
+      @foreach ($sections as $sectionTitle => $items)
+        <div class="px-3 pt-3 pb-1 text-[10px] tracking-wider text-white/40 font-semibold">{{ $sectionTitle }}</div>
+        @foreach ($items as [$name, $route, $badge])
+          @php
+            $exists = \Illuminate\Support\Facades\Route::has($route);
+            $active = $exists && (request()->routeIs($route) || request()->routeIs(str_replace('.index', '', $route).'.*'));
+          @endphp
+          @if ($exists)
+            <a href="{{ route($route) }}" class="flex items-center justify-between px-3 py-2 rounded-lg mb-0.5 {{ $active ? 'bg-primary text-white font-semibold' : 'text-white/80 hover:bg-white/10' }}">
+              <span>{{ $name }}</span>
+              @if ($badge)<span class="bg-red-500 text-white text-[10px] px-1.5 rounded-full">{{ $badge }}</span>@endif
+            </a>
+          @endif
+        @endforeach
+      @endforeach
+    </nav>
+    <div class="p-4 border-t border-white/10 text-xs">
+      <div class="font-semibold">{{ $user?->name }}</div>
+      <div class="text-white/60">Administrator</div>
+      <form method="POST" action="{{ route('logout') }}" class="mt-3">@csrf
+        <button class="w-full px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm">Logout</button>
+      </form>
+    </div>
+  </aside>
+
+  <div id="adm-main">
+    <header class="sticky top-0 z-30 h-16 bg-white border-b border-line flex items-center px-4 sm:px-6 gap-3">
+      <button type="button" id="adm-mobile-open" data-adm-open aria-label="Buka menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0b1220" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <h1 class="text-lg font-semibold">@yield('title', 'Admin')</h1>
+      <a href="{{ route('home') }}" class="ml-auto text-sm text-primary hover:underline">Lihat Site →</a>
+    </header>
+    @if (session('success'))<div class="mx-4 sm:mx-6 mt-4 px-4 py-3 rounded-xl bg-green-50 text-green-700 text-sm border border-green-200">{{ session('success') }}</div>@endif
+    @if ($errors->any())<div class="mx-4 sm:mx-6 mt-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm border border-red-200">@foreach ($errors->all() as $e)<div>{{ $e }}</div>@endforeach</div>@endif
+    <main class="p-4 sm:p-6 lg:p-8">@yield('content')</main>
+  </div>
+</div>
+
+<script id="adm-shell-js">
+(function () {
+  var shell = document.getElementById('adm-shell');
+  if (!shell) return;
+  function setState(s) {
+    shell.setAttribute('data-state', s);
+    document.body.style.overflow = (s === 'open') ? 'hidden' : '';
+  }
+  setState('closed');
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('[data-adm-open]'))  { setState('open');   e.preventDefault(); }
+    if (e.target.closest('[data-adm-close]')) { setState('closed'); e.preventDefault(); }
+  }, false);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') setState('closed');
+  });
+  window.addEventListener('resize', function () {
+    if (window.innerWidth >= 1024) setState('closed');
+  });
+})();
+</script>
+@endsection
+BLADE;
+            $before  = substr($orig, 0, $startPos);
+            $after   = substr($orig, $endPos + strlen($endMarker));
+            $patched = $before . $newBody . $after;
+
+            backup($adminLayoutPath);
+            if (file_put_contents($adminLayoutPath, $patched) !== false) {
+                if (function_exists('opcache_invalidate')) @opcache_invalidate($adminLayoutPath, true);
+                echo "$OK admin.blade.php rewritten (bulletproof shell)\n";
+            } else {
+                echo "$FAIL admin.blade.php write failed\n";
+            }
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // STEP 6 — Ensure file-cache dir exists & writable
