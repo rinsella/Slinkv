@@ -29,12 +29,16 @@ $ENV_EXAMPLE = $BASE . '/.env.example';
 if (file_exists($LOCK)) {
     http_response_code(403);
     header('Content-Type: text/plain; charset=utf-8');
-    echo "Installer terkunci. SlinkV sudah terinstall.\n";
-    echo "Hapus storage/installed.lock untuk menjalankan ulang installer.\n";
+    echo "Installer terkunci. Aplikasi sudah terinstall.\n";
     exit;
 }
 
 session_start();
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$CSRF = $_SESSION['csrf_token'];
 
 $step = (int)($_GET['step'] ?? 1);
 if ($step < 1 || $step > 6) {
@@ -70,14 +74,16 @@ function env_set(string $path, array $kv): bool {
 
 function check_requirements(): array {
     $out = [];
-    $out[] = ['PHP >= 8.2', version_compare(PHP_VERSION, '8.2.0', '>='), PHP_VERSION];
+    $out[] = ['PHP >= 8.2', version_compare(PHP_VERSION, '8.2.0', '>='), PHP_VERSION, true];
     foreach (['pdo', 'mbstring', 'openssl', 'tokenizer', 'json', 'curl', 'fileinfo', 'xml', 'ctype'] as $ext) {
-        $out[] = ['ext-' . $ext, extension_loaded($ext), extension_loaded($ext) ? 'loaded' : 'missing'];
+        $out[] = ['ext-' . $ext, extension_loaded($ext), extension_loaded($ext) ? 'loaded' : 'missing', true];
     }
     global $BASE;
-    $out[] = ['storage/ writable', is_writable($BASE . '/storage'), is_writable($BASE . '/storage') ? 'ok' : 'fix permissions'];
-    $out[] = ['bootstrap/cache writable', is_writable($BASE . '/bootstrap/cache'), is_writable($BASE . '/bootstrap/cache') ? 'ok' : 'fix permissions'];
-    $out[] = ['vendor/autoload.php', file_exists($BASE . '/vendor/autoload.php'), file_exists($BASE . '/vendor/autoload.php') ? 'present' : 'run: composer install'];
+    $out[] = ['storage/ writable', is_writable($BASE . '/storage'), is_writable($BASE . '/storage') ? 'ok' : 'fix permissions', true];
+    $out[] = ['bootstrap/cache writable', is_writable($BASE . '/bootstrap/cache'), is_writable($BASE . '/bootstrap/cache') ? 'ok' : 'fix permissions', true];
+    // vendor is a soft warning at Step 1 — blocker only at Step 5.
+    $vendorOk = file_exists($BASE . '/vendor/autoload.php');
+    $out[] = ['vendor/autoload.php', $vendorOk, $vendorOk ? 'present' : 'belum ada (jalankan: composer install) — wajib sebelum Step 5', false];
     return $out;
 }
 
@@ -104,7 +110,8 @@ function test_database(array $cfg): array {
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         return [true, 'Koneksi sukses'];
     } catch (Throwable $e) {
-        return [false, $e->getMessage()];
+        // Never leak credentials in error messages.
+        return [false, 'Koneksi database gagal. Periksa host/port/credential.'];
     }
 }
 
@@ -115,6 +122,11 @@ $errors = [];
 $notice = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $token = $_POST['csrf_token'] ?? '';
+    if (!is_string($token) || !hash_equals($CSRF, $token)) {
+        $errors[] = 'Sesi installer tidak valid. Refresh halaman.';
+        goto render;
+    }
     if ($step === 2) {
         $cfg = [
             'driver'   => $_POST['driver'] ?? 'sqlite',
@@ -148,10 +160,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'name'     => trim($_POST['admin_name'] ?? ''),
             'email'    => trim($_POST['admin_email'] ?? ''),
             'password' => $_POST['admin_password'] ?? '',
+            'confirm'  => $_POST['admin_password_confirmation'] ?? '',
         ];
         if ($admin['name'] === '' || !filter_var($admin['email'], FILTER_VALIDATE_EMAIL) || strlen($admin['password']) < 8) {
             $errors[] = 'Nama wajib, email valid, password minimal 8 karakter.';
+        } elseif (!hash_equals((string)$admin['password'], (string)$admin['confirm'])) {
+            $errors[] = 'Konfirmasi password tidak cocok.';
         } else {
+            unset($admin['confirm']);
             $_SESSION['admin'] = $admin;
             header('Location: install.php?step=5'); exit;
         }
@@ -228,7 +244,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $log[] = 'Admin create error: ' . $e->getMessage();
             }
 
-            $_SESSION['install_log'] = implode("\n\n", $log);
+            $_SESSION['install_log'] = preg_replace(
+                '/(password[^=]*=)\s*\S+/i',
+                '$1[redacted]',
+                implode("\n\n", $log)
+            );
             if ($okKey && $okMig && $okSeed && $okAdmin) {
                 if (!is_dir(dirname($LOCK))) {
                     @mkdir(dirname($LOCK), 0755, true);
@@ -241,6 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+render:
 // ---------------------------------------------------------------------------
 // Render.
 // ---------------------------------------------------------------------------
@@ -297,10 +318,10 @@ pre { background: #0F172A; color: #F8FAFC; padding: 12px; border-radius: 10px; o
     <?php if ($step === 1): ?>
       <h2>Step 1 — Cek Sistem</h2>
       <table>
-        <?php $reqs = check_requirements(); $allOk = true; foreach ($reqs as $r): if (!$r[1]) $allOk = false; ?>
+        <?php $reqs = check_requirements(); $allOk = true; foreach ($reqs as $r): if ($r[3] && !$r[1]) $allOk = false; ?>
           <tr>
             <td><?= h($r[0]) ?></td>
-            <td class="<?= $r[1] ? 'good' : 'bad' ?>"><?= h($r[2]) ?></td>
+            <td class="<?= $r[1] ? 'good' : ($r[3] ? 'bad' : 'muted') ?>"><?= h($r[2]) ?><?= !$r[3] && !$r[1] ? ' (warning)' : '' ?></td>
           </tr>
         <?php endforeach; ?>
       </table>
@@ -315,6 +336,7 @@ pre { background: #0F172A; color: #F8FAFC; padding: 12px; border-radius: 10px; o
     <?php elseif ($step === 2): ?>
       <h2>Step 2 — Database</h2>
       <form method="post">
+        <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
         <label>Driver</label>
         <select name="driver" id="driver" onchange="document.getElementById('mysql_fields').style.display=this.value==='sqlite'?'none':'block';document.getElementById('sqlite_fields').style.display=this.value==='sqlite'?'block':'none';">
           <option value="sqlite">SQLite (paling mudah, single-file)</option>
@@ -342,6 +364,7 @@ pre { background: #0F172A; color: #F8FAFC; padding: 12px; border-radius: 10px; o
     <?php elseif ($step === 3): ?>
       <h2>Step 3 — Konfigurasi Situs</h2>
       <form method="post">
+        <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
         <label>Nama Situs (APP_NAME)</label>
         <input name="app_name" value="SlinkV" required>
         <label>URL Situs (APP_URL — wajib https di production)</label>
@@ -352,9 +375,11 @@ pre { background: #0F172A; color: #F8FAFC; padding: 12px; border-radius: 10px; o
     <?php elseif ($step === 4): ?>
       <h2>Step 4 — Akun Admin Pertama</h2>
       <form method="post">
+        <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
         <label>Nama</label><input name="admin_name" required>
         <label>Email</label><input type="email" name="admin_email" required>
         <label>Password (minimal 8 karakter)</label><input type="password" name="admin_password" minlength="8" required>
+        <label>Konfirmasi Password</label><input type="password" name="admin_password_confirmation" minlength="8" required>
         <p style="margin-top:20px;"><button type="submit">Lanjut →</button></p>
       </form>
 
@@ -362,12 +387,13 @@ pre { background: #0F172A; color: #F8FAFC; padding: 12px; border-radius: 10px; o
       <h2>Step 5 — Migrate, Seed, &amp; Buat Admin</h2>
       <p class="muted">Aksi ini akan: menulis <code>.env</code>, <code>php artisan key:generate</code>, <code>migrate --force</code>, <code>db:seed --force</code>, lalu membuat akun admin.</p>
       <?php if (!file_exists($BASE . '/vendor/autoload.php')): ?>
-        <div class="err">vendor/autoload.php tidak ditemukan. Jalankan dulu di terminal: <code>composer install --no-dev --optimize-autoloader &amp;&amp; npm ci &amp;&amp; npm run build</code></div>
+        <div class="err">vendor/autoload.php WAJIB ada untuk Step 5. Jalankan dulu di terminal: <code>composer install --no-dev --optimize-autoloader &amp;&amp; npm ci &amp;&amp; npm run build</code></div>
       <?php endif; ?>
       <?php if (!empty($_SESSION['install_log'])): ?>
         <pre><?= h($_SESSION['install_log']) ?></pre>
       <?php endif; ?>
       <form method="post">
+        <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
         <p><button type="submit">Jalankan Install</button></p>
       </form>
 

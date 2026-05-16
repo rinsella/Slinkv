@@ -9,9 +9,17 @@
       <span class="px-2 py-0.5 rounded-full text-xs {{ $report->status==='open'?'bg-red-50 text-red-700':'bg-slate-100' }}">{{ $report->status }}</span>
     </div>
     <dl class="mt-5 grid grid-cols-2 gap-4 text-sm">
-      <div><dt class="text-muted text-xs">Pelapor</dt><dd>{{ $report->reporter_email ?: ($report->user?->email ?? 'anonim') }}</dd></div>
+      <div><dt class="text-muted text-xs">Pelapor</dt><dd>{{ $report->reporter_email ?: 'anonim' }}</dd></div>
       <div><dt class="text-muted text-xs">Dilaporkan</dt><dd>{{ $report->created_at?->format('d M Y H:i') }}</dd></div>
-      <div class="col-span-2"><dt class="text-muted text-xs">Link Terlapor</dt><dd>@if ($report->shortLink)<a href="{{ route('admin.links.show', $report->shortLink) }}" class="text-primary font-mono">{{ $report->shortLink->short_code }}</a> → <span class="text-muted">{{ \Illuminate\Support\Str::limit($report->shortLink->original_url, 60) }}</span>@else <span class="text-muted">-</span>@endif</dd></div>
+      <div class="col-span-2"><dt class="text-muted text-xs">Link Terlapor</dt><dd>
+        @if ($report->shortLink)
+          <a href="{{ route('admin.links.show', $report->shortLink) }}" class="text-primary font-mono">{{ $report->shortLink->slug }}</a>
+          →
+          <span class="text-muted">{{ \Illuminate\Support\Str::limit($report->shortLink->destination_url, 80) }}</span>
+        @else
+          <span class="text-muted">{{ $report->short_url ?: '-' }}</span>
+        @endif
+      </dd></div>
       <div class="col-span-2"><dt class="text-muted text-xs mb-1">Alasan</dt><dd class="whitespace-pre-wrap">{{ $report->reason }}</dd></div>
       @if ($report->admin_action)<div class="col-span-2"><dt class="text-muted text-xs mb-1">Tindakan Admin</dt><dd class="whitespace-pre-wrap p-3 bg-amber-50 rounded-xl">{{ $report->admin_action }}</dd></div>@endif
     </dl>

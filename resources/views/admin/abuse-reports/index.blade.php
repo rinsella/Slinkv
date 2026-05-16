@@ -14,8 +14,8 @@
   @foreach ($reports as $r)
     <tr>
       <td class="p-3">#{{ $r->id }}</td>
-      <td class="p-3 font-mono text-xs">{{ $r->shortLink?->short_code ?? '-' }}</td>
-      <td class="p-3 text-xs">{{ $r->reporter_email ?: ($r->user?->email ?? 'anon') }}</td>
+      <td class="p-3 font-mono text-xs">{{ $r->shortLink?->slug ?? '-' }}</td>
+      <td class="p-3 text-xs">{{ $r->reporter_email ?: 'anonim' }}</td>
       <td class="p-3 text-xs">{{ \Illuminate\Support\Str::limit($r->reason, 50) }}</td>
       <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-xs {{ $r->status==='open'?'bg-red-50 text-red-700':'bg-slate-100' }}">{{ $r->status }}</span></td>
       <td class="p-3 text-xs text-muted">{{ $r->created_at?->format('d/m/Y H:i') }}</td>

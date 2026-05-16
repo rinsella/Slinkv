@@ -113,7 +113,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::patch('links/{link}/unflag', [AdminLinkController::class, 'unflag'])->name('links.unflag');
 
     Route::get('click-logs', [AdminClickLogController::class, 'index'])->name('click-logs');
+    Route::post('click-logs/{log}/block-ip', [AdminClickLogController::class, 'blockIp'])->name('click-logs.block-ip');
     Route::get('bot-logs', [AdminBotLogController::class, 'index'])->name('bot-logs');
+    Route::post('bot-logs/{log}/block-ip', [AdminBotLogController::class, 'blockIp'])->name('bot-logs.block-ip');
+    Route::post('bot-logs/{log}/create-ua-rule', [AdminBotLogController::class, 'createUserAgentRule'])->name('bot-logs.create-ua-rule');
 
     Route::resource('plans', AdminPlanController::class)->except(['show']);
     Route::patch('plans/{plan}/toggle', [AdminPlanController::class, 'toggle'])->name('plans.toggle');

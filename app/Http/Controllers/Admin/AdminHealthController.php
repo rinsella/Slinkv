@@ -54,7 +54,7 @@ class AdminHealthController extends Controller
             'favicon.ico' => [file_exists($favicon) && $faviconSize > 0 ? "ok ({$faviconSize} bytes)" : 'missing/empty', file_exists($favicon) && $faviconSize > 0],
             'apple-touch-icon.png' => [file_exists($appleIcon) ? 'ok' : 'missing', file_exists($appleIcon)],
             'site.webmanifest' => [file_exists($manifest) ? 'ok' : 'missing', file_exists($manifest)],
-            'Vite Manifest' => [$viteOk ? 'ok (build present)' : 'missing - jalankan npm run build', $viteOk],
+            'Vite Manifest' => [$viteOk ? 'ok (build present)' : 'missing - jalankan npm run build atau upload folder public/build', $viteOk],
             'QR Code (endroid/qr-code)' => [class_exists(\Endroid\QrCode\Builder\Builder::class) ? 'installed' : 'missing', class_exists(\Endroid\QrCode\Builder\Builder::class)],
             'GD/Imagick (untuk QR PNG)' => [extension_loaded('gd') ? 'gd' : (extension_loaded('imagick') ? 'imagick' : 'none — QR PNG fallback ke SVG'), extension_loaded('gd') || extension_loaded('imagick')],
         ];

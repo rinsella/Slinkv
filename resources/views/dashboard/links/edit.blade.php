@@ -34,11 +34,16 @@
     <div class="grid sm:grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium mb-1">Filter Device</label>
+        @if (!empty($features['canUseDeviceFilter']))
         <select name="device_filter" class="w-full rounded-xl border-line focus:ring-primary focus:border-primary">
           @foreach (['all'=>'Semua','desktop'=>'Desktop','mobile'=>'Mobile','tablet'=>'Tablet'] as $k=>$v)
             <option value="{{ $k }}" @selected(old('device_filter', $link->device_filter)===$k)>{{ $v }}</option>
           @endforeach
         </select>
+        @else
+        <input type="hidden" name="device_filter" value="all">
+        <div class="text-xs text-muted px-3 py-2 rounded-xl bg-surface border border-line">Device filter tersedia di paket premium.</div>
+        @endif
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Kedaluwarsa</label>
