@@ -16,7 +16,7 @@
     </dl>
   </div>
   <div class="space-y-3">
-    <form method="POST" action="{{ route('admin.users.suspend', $user) }}" class="bg-white rounded-2xl border border-line p-5">@csrf @method('PATCH')
+    <form method="POST" action="{{ route($user->status==='active' ? 'admin.users.suspend' : 'admin.users.activate', $user) }}" class="bg-white rounded-2xl border border-line p-5">@csrf @method('PATCH')
       <button class="w-full px-4 py-2 rounded-xl {{ $user->status==='active' ? 'bg-red-600 text-white' : 'bg-green-600 text-white' }} text-sm font-semibold">{{ $user->status==='active' ? 'Suspend User' : 'Aktifkan User' }}</button>
     </form>
     <form method="POST" action="{{ route('admin.users.change-plan', $user) }}" class="bg-white rounded-2xl border border-line p-5 space-y-3">@csrf @method('PATCH')
